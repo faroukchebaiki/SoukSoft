@@ -104,22 +104,32 @@ export default function App() {
         </div>
 
         <nav className="flex-1 space-y-1 px-4 py-6">
-          {navigation.map(({ label, icon: Icon }) => (
-            <Button
-              key={label}
-              variant="ghost"
-              className={cn(
-                "w-full justify-start gap-3 rounded-md px-3 py-2 text-sm font-medium",
-                activeSection === label
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              onClick={() => setActiveSection(label)}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Button>
-          ))}
+          {navigation.map(({ label, icon: Icon }) => {
+            const isActive = activeSection === label;
+            return (
+              <Button
+                key={label}
+                variant="ghost"
+                className={cn(
+                  "group relative w-full justify-start gap-3 rounded-md px-5 py-2 text-sm transition-all duration-200 hover:translate-x-1 focus-visible:ring-2 focus-visible:ring-primary/40",
+                  isActive
+                    ? "translate-x-1 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-primary/10 hover:text-foreground",
+                )}
+                onClick={() => setActiveSection(label)}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <span
+                  className={cn(
+                    "absolute inset-y-1 left-1 w-[3px] rounded-full bg-primary opacity-0 transition-opacity duration-200 group-hover:opacity-50",
+                    isActive ? "opacity-100" : undefined,
+                  )}
+                />
+                <Icon className="h-4 w-4" />
+                {label}
+              </Button>
+            );
+          })}
         </nav>
       </aside>
 

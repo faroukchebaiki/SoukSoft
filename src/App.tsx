@@ -1,8 +1,8 @@
 import {
-  BadgeDollarSign,
   BadgePercent,
   Barcode,
   Bell,
+  ClipboardList,
   CreditCard,
   History,
   Package,
@@ -12,10 +12,11 @@ import {
   ShoppingBasket,
   SquareTerminal,
   Store,
+  Truck,
   Users2,
   Wallet,
 } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,102 +32,174 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+type UnitType = "kg" | "pcs";
+
+interface CartItem {
+  id: string;
+  name: string;
+  sku: string;
+  unit: UnitType;
+  qty: number;
+  price: number;
+  category: string;
+  discountValue?: number;
+  discountLabel?: string;
+}
+
+const VAT_RATE = 0.19;
+
 const navigation = [
-  { label: "Register", icon: SquareTerminal },
-  { label: "Sales history", icon: Receipt },
-  { label: "Inventory", icon: Package },
-  { label: "Customers", icon: Users2 },
-  { label: "Promotions", icon: BadgePercent },
+  { label: "Quick checkout", icon: SquareTerminal },
+  { label: "Pending orders", icon: ClipboardList },
+  { label: "Store inventory", icon: Package },
+  { label: "Deliveries", icon: Truck },
+  { label: "Loyalty customers", icon: Users2 },
   { label: "Settings", icon: Settings },
 ];
 
-const cartItems = [
+const cartItems: CartItem[] = [
   {
     id: "1",
-    name: "Premium Dark Roast Coffee Beans 1kg",
-    sku: "SKU-10024",
-    qty: 2,
-    price: 18.5,
-    discount: "Buy 1 get 2nd -20%",
+    name: "Beefsteak tomatoes",
+    sku: "PROD-TOM-01",
+    unit: "kg",
+    qty: 1.35,
+    price: 220,
+    category: "Produce",
+    discountLabel: "Daily price",
   },
   {
     id: "2",
-    name: "Reusable Insulated Bottle 750ml",
-    sku: "SKU-11091",
-    qty: 1,
-    price: 24.0,
+    name: "Kabylie olive oil 1L",
+    sku: "PAN-OLI-11",
+    unit: "pcs",
+    qty: 2,
+    price: 950,
+    category: "Gourmet pantry",
   },
   {
     id: "3",
-    name: "Artisan Chocolate Bar Collection",
-    sku: "SKU-98213",
-    qty: 3,
-    price: 6.5,
+    name: "Plain yogurt 12x110g",
+    sku: "CHL-YOG-32",
+    unit: "pcs",
+    qty: 1,
+    price: 520,
+    category: "Chilled foods",
+    discountValue: 80,
+    discountLabel: "Loyalty discount",
   },
   {
     id: "4",
-    name: "House Blend Loose Leaf Tea 250g",
-    sku: "SKU-44102",
+    name: "Semolina couscous 5kg",
+    sku: "DRY-COU-08",
+    unit: "pcs",
     qty: 1,
-    price: 14.75,
+    price: 1380,
+    category: "Dry goods",
   },
 ];
 
 const quickActions = [
-  { label: "Apply discount", icon: BadgePercent },
-  { label: "Suspend sale", icon: History },
-  { label: "Price check", icon: Search },
+  { label: "Item return", icon: History },
+  { label: "Manual price", icon: BadgePercent },
+  { label: "Open cash drawer", icon: Wallet },
+  { label: "Provisional receipt", icon: Receipt },
 ];
 
 const paymentMethods = [
-  { label: "Cash", icon: Wallet },
-  { label: "Card", icon: CreditCard },
-  { label: "Store credit", icon: BadgeDollarSign },
+  { label: "Cash (DZD)", icon: Wallet },
+  { label: "CIB card", icon: CreditCard },
+  { label: "Edahabia card", icon: CreditCard },
+  { label: "Store voucher", icon: Receipt },
 ];
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-DZ", {
     style: "currency",
-    currency: "USD",
+    currency: "DZD",
+    minimumFractionDigits: 2,
   }).format(value);
+}
+
+function formatQuantity(value: number, unit: UnitType) {
+  if (unit === "kg") {
+    return `${value.toFixed(2)} kg`;
+  }
+  return `${value} pcs`;
+}
+
+function BasketTotalPanel({
+  totalDisplayValue,
+  lineCount,
+}: {
+  totalDisplayValue: string;
+  lineCount: number;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-emerald-500/70 bg-emerald-950/70 px-6 py-5 text-emerald-300 shadow-[0_0_22px_rgba(16,185,129,0.35)]">
+      <div className="flex flex-col gap-2">
+        <span className="text-[0.7rem] font-medium uppercase tracking-[0.25em] text-emerald-200">
+          Basket total
+        </span>
+        <span className="font-mono text-4xl tracking-[0.28em] leading-none sm:text-[2.75rem]">
+          {totalDisplayValue}
+        </span>
+      </div>
+      <Badge variant="secondary">
+        {lineCount} lines
+      </Badge>
+    </div>
+  );
 }
 
 export default function App() {
   const [activeSection, setActiveSection] = useState(navigation[0].label);
-  const loyaltyInputId = useId();
 
   const totals = useMemo(() => {
     const subtotal = cartItems.reduce(
       (sum, item) => sum + item.price * item.qty,
       0,
     );
-    const tax = subtotal * 0.08;
-    const total = subtotal + tax;
+    const discounts = cartItems.reduce(
+      (sum, item) => sum + (item.discountValue ?? 0),
+      0,
+    );
+    const taxable = subtotal - discounts;
+    const vat = taxable * VAT_RATE;
+    const total = taxable + vat;
+    const produceWeight = cartItems
+      .filter((item) => item.unit === "kg")
+      .reduce((sum, item) => sum + item.qty, 0);
+    const pieceCount = cartItems
+      .filter((item) => item.unit === "pcs")
+      .reduce((sum, item) => sum + item.qty, 0);
+
     return {
       subtotal,
-      tax,
+      discounts,
+      vat,
       total,
-      items: cartItems.reduce((sum, item) => sum + item.qty, 0),
+      lines: cartItems.length,
+      produceWeight,
+      pieceCount,
     };
   }, []);
+
   const totalDisplayValue = useMemo(
-    () =>
-      formatCurrency(totals.total)
-        .replace("$", "$ ")
-        .toUpperCase(),
+    () => formatCurrency(totals.total),
     [totals.total],
   );
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden w-72 border-r bg-card/30 lg:flex lg:flex-col">
+    <div className="flex min-h-screen min-w-[1200px] bg-background text-foreground">
+      <aside className="flex w-80 shrink-0 border-r bg-card/30 flex-col">
         <div className="flex h-16 items-center gap-3 border-b px-6">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Store className="h-5 w-5" />
           </div>
           <div className="space-y-0.5">
-            <p className="text-xs uppercase text-muted-foreground">Souksoft</p>
-            <h1 className="text-lg font-semibold">Point of Sale</h1>
+            <p className="text-xs uppercase text-muted-foreground">SoukSoft</p>
+            <h1 className="text-lg font-semibold">Generic Supermarket</h1>
           </div>
         </div>
 
@@ -150,82 +223,53 @@ export default function App() {
         </nav>
 
         <div className="mt-auto space-y-3 border-t px-6 py-6">
-          <p className="text-xs uppercase text-muted-foreground">Shortcuts</p>
+          <p className="text-xs uppercase text-muted-foreground">
+            Shift shortcuts
+          </p>
           <div className="flex flex-col gap-2">
             <Button variant="secondary" className="justify-start gap-2">
               <ShoppingBasket className="h-4 w-4" />
-              Open returns
+              Close register
             </Button>
             <Button variant="secondary" className="justify-start gap-2">
               <Receipt className="h-4 w-4" />
-              End of day
+              Ticket history
             </Button>
           </div>
         </div>
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex flex-col gap-6 border-b bg-card/40 px-8 py-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
-            <Badge variant="secondary">Register 3</Badge>
-            <div>
-              <h2 className="text-2xl font-semibold leading-tight">Active sale</h2>
-              <p className="text-xs text-muted-foreground">
-                Cashier: Aya Benali • Shift 09:00 - 17:00
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-4 lg:flex-row lg:items-center">
-            <div className="flex flex-col items-end">
-              <div className="flex items-center justify-end rounded-xl border border-emerald-500/70 bg-emerald-950/70 px-6 py-3 font-mono text-4xl tracking-[0.35em] text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.4)] sm:text-5xl lg:min-w-[320px]">
-                {totalDisplayValue}
-              </div>
-              <span className="mt-2 text-xs font-medium uppercase tracking-[0.3em] text-emerald-500/80">
-                Total due
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <Button variant="outline" className="gap-2">
-                <Bell className="h-4 w-4" />
-                Alerts
-              </Button>
-              <Button variant="outline">Hold sale</Button>
-              <Button>Checkout</Button>
-            </div>
-          </div>
-        </header>
-
-        <main className="grid flex-1 gap-6 overflow-y-auto px-8 py-6 xl:grid-cols-[2fr_1fr]">
+        <main className="grid flex-1 gap-6 overflow-y-auto px-6 py-6 lg:grid-cols-[3fr_2fr]">
           <section className="space-y-6">
             <Card>
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle>Scan or search items</CardTitle>
+                  <CardTitle>Add item</CardTitle>
                   <CardDescription>
-                    Use the barcode scanner or search to add products to the cart.
+                    Scan a barcode or search for a product from the aisle.
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="gap-2">
                     <Barcode className="h-4 w-4" />
-                    Manual barcode
+                    Scan
                   </Button>
                   <Button variant="outline" size="sm" className="gap-2">
                     <Search className="h-4 w-4" />
-                    Browse catalog
+                    Search
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-[2fr,1fr]">
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 lg:grid-cols-[2fr,1fr,1fr]">
                   <label className="flex flex-col">
                     <span className="text-xs font-medium uppercase text-muted-foreground">
-                      Product search
+                      Product lookup
                     </span>
                     <input
                       className="mt-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      placeholder="Search by name, SKU, category..."
+                      placeholder="Name, internal code, aisle…"
                     />
                   </label>
                   <label className="flex flex-col">
@@ -234,148 +278,185 @@ export default function App() {
                     </span>
                     <input
                       className="mt-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      placeholder="Awaiting scan..."
+                      placeholder="Waiting for scan…"
+                    />
+                  </label>
+                  <label className="flex flex-col">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">
+                      Manual weight (kg)
+                    </span>
+                    <input
+                      className="mt-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      placeholder="0,000"
                     />
                   </label>
                 </div>
 
-                <div className="rounded-md border">
-                  <table className="min-w-full divide-y divide-border text-sm">
-                    <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-2 font-medium">Item</th>
-                        <th className="px-4 py-2 font-medium">Qty</th>
-                        <th className="px-4 py-2 font-medium">Price</th>
-                        <th className="px-4 py-2 font-medium text-right">Line total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border bg-background">
-                      {cartItems.map((item) => (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {quickActions.map(({ label, icon: Icon }) => (
+                    <Button
+                      key={label}
+                      variant="secondary"
+                      size="sm"
+                      className="justify-start gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Active basket</CardTitle>
+                  <CardDescription>
+                    Review items and adjust quantities before checkout.
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">
+                  {totals.lines} lines | {totals.pieceCount} items
+                </Badge>
+              </CardHeader>
+              <CardContent className="rounded-md border p-0">
+                <table className="min-w-full divide-y divide-border text-sm">
+                  <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Item</th>
+                      <th className="px-4 py-2 font-medium">Qty</th>
+                      <th className="px-4 py-2 font-medium">Unit price</th>
+                      <th className="px-4 py-2 font-medium">Discount</th>
+                      <th className="px-4 py-2 font-medium text-right">
+                        Line total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-background">
+                    {cartItems.map((item) => {
+                      const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
+                      return (
                         <tr key={item.id}>
                           <td className="px-4 py-3">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col gap-1">
                               <span className="font-medium">{item.name}</span>
                               <span className="text-xs text-muted-foreground">
                                 {item.sku}
                               </span>
-                              {item.discount ? (
-                                <span className="text-xs text-primary">
-                                  {item.discount}
-                                </span>
-                              ) : null}
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="outline" className="text-[0.6rem] uppercase">
+                                  {item.category}
+                                </Badge>
+                                {item.discountLabel ? (
+                                  <Badge variant="secondary" className="text-[0.6rem] uppercase">
+                                    {item.discountLabel}
+                                  </Badge>
+                                ) : null}
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <Button variant="outline" size="icon" className="h-7 w-7">
+                              <Button variant="outline" size="icon" className="h-8 w-8">
                                 −
                               </Button>
-                              <span className="w-6 text-center">{item.qty}</span>
-                              <Button variant="outline" size="icon" className="h-7 w-7">
+                              <div className="min-w-[72px] text-center">
+                                <p className="text-sm font-medium leading-tight">
+                                  {formatQuantity(item.qty, item.unit)}
+                                </p>
+                                {item.unit === "kg" ? (
+                                  <span className="text-[0.625rem] uppercase text-muted-foreground">
+                                    Scale 3
+                                  </span>
+                                ) : null}
+                              </div>
+                              <Button variant="outline" size="icon" className="h-8 w-8">
                                 +
                               </Button>
                             </div>
                           </td>
                           <td className="px-4 py-3">{formatCurrency(item.price)}</td>
+                          <td className="px-4 py-3">
+                            {item.discountValue ? (
+                              <span className="text-sm text-emerald-500">
+                                −{formatCurrency(item.discountValue)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-right font-medium">
-                            {formatCurrency(item.price * item.qty)}
+                            {formatCurrency(lineTotal)}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </CardContent>
-              <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {totals.items} items • {formatCurrency(totals.subtotal)} subtotal
+              <CardFooter className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {totals.pieceCount} items | {totals.produceWeight.toFixed(2)} kg fresh
+                  produce
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline">Clear cart</Button>
+                  <Button variant="outline">Suspend ticket</Button>
                   <Button variant="outline">Add note</Button>
                 </div>
               </CardFooter>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Customer</CardTitle>
-                  <CardDescription>
-                    Attach a loyalty profile to apply benefits automatically.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Walk-in customer</p>
-                      <p className="text-xs text-muted-foreground">
-                        Not enrolled in loyalty
-                      </p>
-                    </div>
-                    <Button size="sm" variant="outline">
-                      Add customer
-                    </Button>
-                  </div>
-                  <Separator />
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor={loyaltyInputId}
-                      className="text-xs font-medium uppercase text-muted-foreground"
-                    >
-                      Loyalty number
-                    </label>
-                    <input
-                      id={loyaltyInputId}
-                      className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      placeholder="Scan or type loyalty ID"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick actions</CardTitle>
-                  <CardDescription>
-                    Frequently used register flows for the cashier.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {quickActions.map(({ label, icon: Icon }) => (
-                    <Button key={label} variant="secondary" className="justify-start gap-2">
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
           </section>
 
           <aside className="space-y-6">
+            <BasketTotalPanel
+              totalDisplayValue={totalDisplayValue}
+              lineCount={totals.lines}
+            />
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm uppercase text-muted-foreground">
-                  Order summary
-                </CardTitle>
+                <CardTitle>Register summary</CardTitle>
+                <CardDescription>
+                  Amounts calculated with VAT {VAT_RATE * 100}%.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span>Subtotal</span>
                   <span>{formatCurrency(totals.subtotal)}</span>
                 </div>
+                {totals.discounts > 0 ? (
+                  <div className="flex items-center justify-between text-emerald-500">
+                    <span>Discounts applied</span>
+                    <span>−{formatCurrency(totals.discounts)}</span>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between">
-                  <span>Tax (8%)</span>
-                  <span>{formatCurrency(totals.tax)}</span>
+                  <span>VAT ({VAT_RATE * 100}%)</span>
+                  <span>{formatCurrency(totals.vat)}</span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between text-lg font-semibold">
-                  <span>Total due</span>
+                  <span>Amount to collect</span>
                   <span>{formatCurrency(totals.total)}</span>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col gap-3">
+              <CardFooter className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ThemeToggle />
+                    <Button variant="outline" className="gap-2">
+                      <Bell className="h-4 w-4" />
+                      Alerts
+                    </Button>
+                    <Button variant="outline">Suspend</Button>
+                    <Button>Checkout</Button>
+                  </div>
+                  <Badge variant="outline" className="hidden sm:inline-flex uppercase">
+                    Register 2 | Shift 08:00-16:00
+                  </Badge>
+                </div>
                 {paymentMethods.map(({ label, icon: Icon }, index) => (
                   <Button key={label} className="w-full justify-between">
                     <span className="flex items-center gap-2">
@@ -387,35 +468,11 @@ export default function App() {
                     </span>
                   </Button>
                 ))}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button variant="outline">Split payment</Button>
+                  <Button variant="outline">Print invoice</Button>
+                </div>
               </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Register status</CardTitle>
-                <CardDescription>
-                  Keep an eye on cash drawer movement and voided sales.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <div className="flex items-center justify-between">
-                  <span>Opening float</span>
-                  <span>{formatCurrency(200)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Cash added</span>
-                  <span>{formatCurrency(120)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Cash removed</span>
-                  <span>{formatCurrency(40)}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between font-medium">
-                  <span>Expected drawer</span>
-                  <span>{formatCurrency(280)}</span>
-                </div>
-              </CardContent>
             </Card>
           </aside>
         </main>

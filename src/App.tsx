@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   DEFAULT_SECTION,
   cartItems,
-  deliverySchedule,
   inventorySnapshots,
   loyaltyMembers,
   navigation,
@@ -18,7 +17,6 @@ import {
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CheckoutTotals, Section } from "@/types";
-import { Deliveries } from "@/pages/Deliveries";
 import { LoyaltyCustomers } from "@/pages/LoyaltyCustomers";
 import { PendingOrders } from "@/pages/PendingOrders";
 import { QuickCheckout } from "@/pages/QuickCheckout";
@@ -79,8 +77,6 @@ export default function App() {
         return <PendingOrders orders={pendingOrders} />;
       case "Store inventory":
         return <StoreInventory inventory={inventorySnapshots} />;
-      case "Deliveries":
-        return <Deliveries schedule={deliverySchedule} />;
       case "Loyalty customers":
         return <LoyaltyCustomers members={loyaltyMembers} />;
       case "Settings":

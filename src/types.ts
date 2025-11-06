@@ -6,7 +6,6 @@ export type Section =
   | "Quick checkout"
   | "Pending orders"
   | "Store inventory"
-  | "Deliveries"
   | "Loyalty customers"
   | "Settings";
 
@@ -63,16 +62,6 @@ export interface InventorySnapshot {
   skuCount: number;
   lowStockSku: number;
   lastAudit: string;
-}
-
-export type DeliveryStatus = "On route" | "Waiting dock" | "Delivered";
-
-export interface DeliverySchedule {
-  supplier: string;
-  eta: string;
-  items: number;
-  contact: string;
-  status: DeliveryStatus;
 }
 
 export type LoyaltyTier = "Silver" | "Gold" | "Platinum";

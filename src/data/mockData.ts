@@ -7,14 +7,12 @@ import {
   Receipt,
   Settings,
   SquareTerminal,
-  Truck,
   Users2,
   Wallet,
 } from "lucide-react";
 
 import type {
   CartItem,
-  DeliverySchedule,
   InventorySnapshot,
   LoyaltyMember,
   NavigationItem,
@@ -31,7 +29,6 @@ export const navigation: readonly NavigationItem[] = [
   { label: "Quick checkout", icon: SquareTerminal },
   { label: "Pending orders", icon: ClipboardList },
   { label: "Store inventory", icon: Package },
-  { label: "Deliveries", icon: Truck },
   { label: "Loyalty customers", icon: Users2 },
   { label: "Settings", icon: Settings },
 ] as const satisfies ReadonlyArray<NavigationItem>;
@@ -151,37 +148,6 @@ export const inventorySnapshots: InventorySnapshot[] = [
     skuCount: 165,
     lowStockSku: 9,
     lastAudit: "Today 10:05",
-  },
-];
-
-export const deliverySchedule: DeliverySchedule[] = [
-  {
-    supplier: "Sersou Produce Cooperative",
-    eta: "Today 14:30",
-    items: 18,
-    contact: "+213 551 223 998",
-    status: "On route",
-  },
-  {
-    supplier: "Atlas Dairy",
-    eta: "Today 16:00",
-    items: 12,
-    contact: "+213 555 102 440",
-    status: "Waiting dock",
-  },
-  {
-    supplier: "Kabyle Olive Mills",
-    eta: "Tomorrow 08:15",
-    items: 9,
-    contact: "+213 772 887 651",
-    status: "On route",
-  },
-  {
-    supplier: "Global Cleaning Supplies",
-    eta: "Tomorrow 11:45",
-    items: 15,
-    contact: "+213 550 019 765",
-    status: "Delivered",
   },
 ];
 

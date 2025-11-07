@@ -72,6 +72,15 @@ export interface SettingOption {
   actionLabel: string;
 }
 
+export interface AccountProfile {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  avatarInitials: string;
+  shift: string;
+}
+
 export interface CatalogProduct {
   id: string;
   name: string;

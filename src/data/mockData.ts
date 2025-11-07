@@ -9,9 +9,10 @@ import {
 } from "lucide-react";
 
 import type {
+  AccountProfile,
   CartItem,
-  NavigationItem,
   CatalogProduct,
+  NavigationItem,
   PaymentMethod,
   PurchaseHistoryEntry,
   Section,
@@ -398,3 +399,12 @@ export const settingsOptions: SettingOption[] = [
 ];
 
 export const DEFAULT_SECTION: Section = "Main page";
+
+export const activeUser: AccountProfile = {
+  id: "USR-204",
+  name: "Farouk Messaoudi",
+  role: "Register lead",
+  email: "farouk@souksoft.dz",
+  avatarInitials: "FM",
+  shift: "08:00 - 16:00",
+};

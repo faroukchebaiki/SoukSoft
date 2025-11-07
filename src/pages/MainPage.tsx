@@ -4,6 +4,7 @@ import {
   Minus,
   Plus,
   PlusCircle,
+  Printer,
   RotateCcw,
   ScanLine,
   Trash2,
@@ -199,9 +200,14 @@ export function MainPage({
     setBasketVersion((version) => version + 1);
   }, [appendActivity]);
 
+  const handlePrintReceipt = useCallback(() => {
+    appendActivity("Receipt printed");
+    window.print();
+  }, [appendActivity]);
+
   return (
-    <div className="flex h-full flex-col">
-      <main className="grid flex-1 gap-6 overflow-hidden px-6 py-6 lg:grid-cols-[3fr_2fr]">
+    <div className="page-shell flex h-full flex-col">
+      <main className="grid flex-1 gap-6 overflow-hidden px-8 py-8 lg:grid-cols-[3fr_2fr]">
         <section className="flex min-h-0 flex-col gap-6 overflow-hidden">
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -474,6 +480,10 @@ export function MainPage({
             >
               <RotateCcw className="h-4 w-4" />
               Cancel basket
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={handlePrintReceipt}>
+              <Printer className="h-4 w-4" />
+              Print receipt
             </Button>
             <Button className="gap-2" onClick={handleFinishBasket}>
               <CheckCircle2 className="h-4 w-4" />

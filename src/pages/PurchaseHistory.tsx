@@ -13,7 +13,7 @@ export function PurchaseHistory({ entries }: PurchaseHistoryProps) {
   const totalCollected = entries.reduce((sum, entry) => sum + entry.total, 0);
 
   return (
-    <main className="flex-1 overflow-y-auto px-6 py-6">
+    <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
       <header className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">History</h1>

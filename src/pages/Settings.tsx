@@ -24,7 +24,7 @@ const profile = {
 
 export function Settings({ options }: SettingsProps) {
   return (
-    <main className="flex-1 overflow-y-auto px-6 py-6">
+    <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader>

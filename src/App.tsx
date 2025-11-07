@@ -1,4 +1,9 @@
-import { ChevronLeft, ChevronRight, Store } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Star,
+  Store,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +15,7 @@ import {
   paymentMethods,
   purchaseHistory,
   settingsOptions,
+  activeUser,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import type { Section } from "@/types";
@@ -47,19 +53,26 @@ export default function App() {
     <div className="flex h-screen min-w-[1100px] overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          "sticky top-0 flex h-screen shrink-0 flex-col border-r bg-card/30 transition-[width] duration-300",
-          navCollapsed ? "w-24" : "w-64",
+          "sidebar-shell sticky top-0 flex h-screen shrink-0 flex-col transition-[width] duration-300",
+          navCollapsed ? "w-24" : "w-72",
         )}
       >
-        <div className="flex h-16 items-center gap-3 border-b px-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <div className="flex h-20 items-center gap-3 border-b border-border/60 px-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-lg">
             <Store className="h-5 w-5" />
           </div>
-          {!navCollapsed && <h1 className="text-lg font-semibold">SoukSoft</h1>}
+          {!navCollapsed && (
+            <div>
+              <p className="text-sm uppercase tracking-[0.4em] text-muted-foreground">
+                SoukSoft
+              </p>
+              <h1 className="text-lg font-semibold text-foreground">Front counter OS</h1>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto h-8 w-8 shrink-0"
+            className="ml-auto h-9 w-9 shrink-0 text-muted-foreground hover:bg-muted/40"
             aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
             onClick={() => setNavCollapsed((prev) => !prev)}
           >
@@ -71,6 +84,18 @@ export default function App() {
           </Button>
         </div>
 
+        {!navCollapsed && (
+          <div className="mx-4 mt-5 glass-panel p-4 text-[0.7rem] uppercase tracking-wider text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <Star className="h-4 w-4 text-amber-300" />
+              Elite register stack
+            </div>
+            <p className="mt-2 text-sm normal-case text-foreground/80">
+              Seamless baskets, live stock, and loyalty intelligence in one surface.
+            </p>
+          </div>
+        )}
+
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
           {navigation.map(({ label, icon: Icon }) => {
             const isActive = activeSection === label;
@@ -80,18 +105,18 @@ export default function App() {
                 variant="ghost"
                 title={label}
                 className={cn(
-                  "group relative w-full rounded-md px-4 py-2 text-sm transition-all duration-200 hover:translate-x-1 focus-visible:ring-2 focus-visible:ring-primary/40",
+                  "group relative w-full rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/40",
                   navCollapsed ? "justify-center" : "justify-start gap-3",
                   isActive
-                    ? "translate-x-1 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:text-primary-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-primary/10 hover:text-foreground",
+                    ? "border-primary/70 bg-primary/10 text-primary hover:bg-primary/15"
+                    : "hover:border-muted hover:bg-muted/40 hover:text-foreground",
                 )}
                 onClick={() => setActiveSection(label)}
                 aria-current={isActive ? "page" : undefined}
               >
                 <span
                   className={cn(
-                    "absolute inset-y-1 left-1 w-[3px] rounded-full bg-primary opacity-0 transition-opacity duration-200 group-hover:opacity-50",
+                    "absolute inset-y-3 left-2 w-[3px] rounded-full bg-primary opacity-0 transition-opacity duration-200 group-hover:opacity-50",
                     isActive ? "opacity-100" : undefined,
                   )}
                 />
@@ -101,8 +126,53 @@ export default function App() {
             );
           })}
         </nav>
-        <div className="border-t px-3 py-4 text-center text-[0.65rem] uppercase tracking-wider text-muted-foreground">
-          {navCollapsed ? "v1.0.0" : "Version 1.0.0"}
+        <div className="px-4 pb-5">
+          <div
+            className={cn(
+              "glass-panel p-4 text-sm text-muted-foreground transition-all",
+              navCollapsed ? "items-center justify-center p-2 text-center" : "space-y-3",
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-base font-semibold text-primary">
+                {activeUser.avatarInitials}
+              </div>
+              {!navCollapsed && (
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {activeUser.name}
+                  </p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {activeUser.role} · {activeUser.shift}
+                  </p>
+                </div>
+              )}
+            </div>
+            {!navCollapsed && (
+              <>
+                <p className="text-xs leading-tight text-muted-foreground">
+                  {activeUser.email}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                    onClick={() => setActiveSection("Settings")}
+                  >
+                    Account center
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  >
+                    Sign out
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </aside>
 

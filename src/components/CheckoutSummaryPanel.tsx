@@ -13,12 +13,12 @@ export function CheckoutSummaryPanel({
 }: CheckoutSummaryPanelProps) {
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-emerald-500/70 bg-emerald-950/70 px-6 py-5 text-emerald-300 shadow-[0_0_22px_rgba(16,185,129,0.35)]">
+      <div className="glass-panel border border-emerald-900/70 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 px-6 py-5 text-white shadow-[0_25px_80px_rgba(2,44,34,0.65)] dark:border-emerald-500/50 dark:from-emerald-500/25 dark:via-transparent dark:to-emerald-500/8 dark:text-emerald-100">
         <div className="flex flex-col gap-2">
-          <span className="text-[0.7rem] font-medium uppercase tracking-[0.25em] text-emerald-200">
+          <span className="text-[0.7rem] font-medium uppercase tracking-[0.25em] text-white/90 drop-shadow-[0_2px_6px_rgba(16,185,129,0.45)] dark:text-emerald-200">
             Totale
           </span>
-          <span className="font-mono text-5xl font-bold tracking-[0.18em] leading-none sm:text-[3.25rem]">
+          <span className="font-mono text-5xl font-bold tracking-[0.18em] leading-none text-white drop-shadow-[0_4px_12px_rgba(9,9,9,0.35)] dark:text-emerald-100 sm:text-[3.25rem]">
             {totalDisplayValue}
           </span>
         </div>

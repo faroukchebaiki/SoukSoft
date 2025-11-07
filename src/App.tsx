@@ -1,83 +1,41 @@
 import { ChevronLeft, ChevronRight, Store } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_SECTION,
   cartItems,
-  inventorySnapshots,
-  loyaltyMembers,
   navigation,
-  pendingOrders,
+  catalogProducts,
+  paymentMethods,
+  purchaseHistory,
   settingsOptions,
-  VAT_RATE,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import type { CheckoutTotals, Section } from "@/types";
-import { LoyaltyCustomers } from "@/pages/LoyaltyCustomers";
-import { PendingOrders } from "@/pages/PendingOrders";
-import { QuickCheckout } from "@/pages/QuickCheckout";
+import type { Section } from "@/types";
+import { MainPage } from "@/pages/MainPage";
+import { AllItems } from "@/pages/AllItems";
+import { PurchaseHistory } from "@/pages/PurchaseHistory";
 import { Settings } from "@/pages/Settings";
-import { StoreInventory } from "@/pages/StoreInventory";
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
   const [navCollapsed, setNavCollapsed] = useState(false);
 
-  const totals = useMemo<CheckoutTotals>(() => {
-    const subtotal = cartItems.reduce(
-      (sum, item) => sum + item.price * item.qty,
-      0,
-    );
-    const discounts = cartItems.reduce(
-      (sum, item) => sum + (item.discountValue ?? 0),
-      0,
-    );
-    const taxable = subtotal - discounts;
-    const vat = taxable * VAT_RATE;
-    const total = taxable + vat;
-    const produceWeight = cartItems
-      .filter((item) => item.unit === "kg")
-      .reduce((sum, item) => sum + item.qty, 0);
-    const pieceCount = cartItems
-      .filter((item) => item.unit === "pcs")
-      .reduce((sum, item) => sum + item.qty, 0);
-
-    return {
-      subtotal,
-      discounts,
-      vat,
-      total,
-      lines: cartItems.length,
-      produceWeight,
-      pieceCount,
-    };
-  }, []);
-
-  const totalDisplayValue = useMemo(() => {
-    const value = new Intl.NumberFormat("en-DZ", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(totals.total);
-    return `${value} DA`;
-  }, [totals.total]);
-
   const renderSection = () => {
     switch (activeSection) {
-      case "Quick checkout":
+      case "Main page":
         return (
-          <QuickCheckout
-            cartItems={cartItems}
-            totals={totals}
-            totalDisplayValue={totalDisplayValue}
+          <MainPage
+            initialCartItems={cartItems}
+            paymentMethods={paymentMethods}
+            availableProducts={catalogProducts}
           />
         );
-      case "Pending orders":
-        return <PendingOrders orders={pendingOrders} />;
-      case "Store inventory":
-        return <StoreInventory inventory={inventorySnapshots} />;
-      case "Loyalty customers":
-        return <LoyaltyCustomers members={loyaltyMembers} />;
+      case "All items":
+        return <AllItems products={catalogProducts} />;
+      case "History":
+        return <PurchaseHistory entries={purchaseHistory} />;
       case "Settings":
         return <Settings options={settingsOptions} />;
       default:

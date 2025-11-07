@@ -2,12 +2,7 @@ import type { LucideIcon } from "lucide-react";
 
 export type UnitType = "kg" | "pcs";
 
-export type Section =
-  | "Quick checkout"
-  | "Pending orders"
-  | "Store inventory"
-  | "Loyalty customers"
-  | "Settings";
+export type Section = "Main page" | "All items" | "History" | "Settings";
 
 export interface NavigationItem {
   label: Section;
@@ -16,6 +11,7 @@ export interface NavigationItem {
 
 export interface CartItem {
   id: string;
+  barcode: string;
   name: string;
   sku: string;
   unit: UnitType;
@@ -74,4 +70,25 @@ export interface SettingOption {
   name: string;
   description: string;
   actionLabel: string;
+}
+
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  unit: UnitType;
+  price: number;
+  stockQty: number;
+  minQty?: number;
+  barcode?: string;
+}
+
+export interface PurchaseHistoryEntry {
+  id: string;
+  cashier: string;
+  total: number;
+  items: number;
+  paymentMethod: string;
+  completedAt: string;
 }

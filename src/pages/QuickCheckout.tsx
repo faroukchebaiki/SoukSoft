@@ -1,3 +1,5 @@
+import { CheckCircle2, Edit2, RotateCcw, Trash2, Undo2 } from "lucide-react";
+
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,25 +11,24 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatQuantity } from "@/lib/format";
-import type { CartItem, CheckoutTotals, PaymentMethod } from "@/types";
+import type { CartItem, CheckoutTotals } from "@/types";
 
 interface QuickCheckoutProps {
   cartItems: CartItem[];
   totals: CheckoutTotals;
   totalDisplayValue: string;
-  paymentMethods: PaymentMethod[];
 }
 
 export function QuickCheckout({
   cartItems,
   totals,
   totalDisplayValue,
-  paymentMethods,
 }: QuickCheckoutProps) {
   return (
-    <main className="grid h-full min-h-0 flex-1 gap-6 overflow-hidden px-6 py-6 lg:grid-cols-[3fr_2fr]">
-      <section className="flex h-full min-h-0 flex-col overflow-hidden">
-        <Card className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full flex-col">
+      <main className="grid flex-1 gap-6 overflow-hidden px-6 py-6 lg:grid-cols-[3fr_2fr]">
+        <section className="flex h-full min-h-0 flex-col overflow-hidden">
+          <Card className="flex h-full min-h-0 flex-col">
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Active basket</CardTitle>
@@ -49,6 +50,7 @@ export function QuickCheckout({
                     <th className="px-4 py-2 font-medium">Unit price</th>
                     <th className="px-4 py-2 font-medium">Discount</th>
                     <th className="px-4 py-2 font-medium text-right">Line total</th>
+                    <th className="px-4 py-2 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border bg-background">
@@ -114,6 +116,26 @@ export function QuickCheckout({
                         <td className="px-4 py-3 text-right font-medium">
                           {formatCurrency(lineTotal)}
                         </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Edit ${item.name}`}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Delete ${item.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -124,13 +146,31 @@ export function QuickCheckout({
         </Card>
       </section>
 
-      <aside className="h-full">
-        <CheckoutSummaryPanel
-          totals={totals}
-          totalDisplayValue={totalDisplayValue}
-          paymentMethods={paymentMethods}
-        />
-      </aside>
-    </main>
+        <aside className="h-full">
+          <CheckoutSummaryPanel totals={totals} totalDisplayValue={totalDisplayValue} />
+        </aside>
+      </main>
+      <footer className="border-t bg-card/80 px-6 py-4 shadow-[0_-8px_20px_rgba(0,0,0,0.12)] backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Register 2 · Shift 08:00-16:00
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-2">
+              <Undo2 className="h-4 w-4" />
+              Return item
+            </Button>
+            <Button variant="outline" className="gap-2 border-destructive/60 text-destructive">
+              <RotateCcw className="h-4 w-4" />
+              Undo basket
+            </Button>
+            <Button className="gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Finish & next basket
+            </Button>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

@@ -165,7 +165,7 @@ export const cartItems: CartItem[] = [
 ];
 
 export const paymentMethods: PaymentMethod[] = [
-  { label: "Cash (DZD)", icon: Wallet },
+  { label: "Cash (DA)", icon: Wallet },
   { label: "CIB card", icon: CreditCard },
   { label: "Edahabia card", icon: CreditCard },
   { label: "Store voucher", icon: Receipt },

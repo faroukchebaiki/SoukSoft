@@ -8,12 +8,10 @@ import {
   inventorySnapshots,
   loyaltyMembers,
   navigation,
-  paymentMethods,
   pendingOrders,
   settingsOptions,
   VAT_RATE,
 } from "@/data/mockData";
-import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CheckoutTotals, Section } from "@/types";
 import { LoyaltyCustomers } from "@/pages/LoyaltyCustomers";
@@ -56,10 +54,13 @@ export default function App() {
     };
   }, []);
 
-  const totalDisplayValue = useMemo(
-    () => formatCurrency(totals.total),
-    [totals.total],
-  );
+  const totalDisplayValue = useMemo(() => {
+    const value = new Intl.NumberFormat("en-DZ", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(totals.total);
+    return `${value} DA`;
+  }, [totals.total]);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -69,7 +70,6 @@ export default function App() {
             cartItems={cartItems}
             totals={totals}
             totalDisplayValue={totalDisplayValue}
-            paymentMethods={paymentMethods}
           />
         );
       case "Pending orders":

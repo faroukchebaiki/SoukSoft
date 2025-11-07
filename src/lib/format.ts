@@ -1,11 +1,11 @@
 import type { UnitType } from "@/types";
 
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-DZ", {
-    style: "currency",
-    currency: "DZD",
+  const formatted = new Intl.NumberFormat("en-DZ", {
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
+  return `${formatted} DA`;
 }
 
 export function formatQuantity(value: number, unit: UnitType) {

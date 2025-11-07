@@ -36,11 +36,6 @@ export interface CheckoutTotals {
   pieceCount: number;
 }
 
-export interface QuickAction {
-  label: string;
-  icon: LucideIcon;
-}
-
 export interface PaymentMethod {
   label: string;
   icon: LucideIcon;

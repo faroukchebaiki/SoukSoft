@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 
 export type UnitType = "kg" | "pcs";
 
-export type Section = "Main page" | "All items" | "History" | "Settings";
+export type Section = "Main page" | "All items" | "History" | "Settings" | "Product builder";
 
 export interface NavigationItem {
   label: Section;

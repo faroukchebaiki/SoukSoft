@@ -4,6 +4,7 @@ import {
   Package,
   Receipt,
   Settings,
+  ShieldPlus,
   SquareTerminal,
   Wallet,
 } from "lucide-react";
@@ -26,6 +27,7 @@ export const navigation: readonly NavigationItem[] = [
   { label: "All items", icon: Package },
   { label: "History", icon: History },
   { label: "Settings", icon: Settings },
+  { label: "Product builder", icon: ShieldPlus },
 ] satisfies ReadonlyArray<NavigationItem>;
 
 export const cartItems: CartItem[] = [

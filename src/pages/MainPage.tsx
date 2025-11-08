@@ -214,18 +214,12 @@ export function MainPage({
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <ScanLine className="h-5 w-5 text-emerald-500" />
-                  Barcode listener
+                  Barcode capture
                 </CardTitle>
                 <CardDescription>
                   Scanning a code instantly adds the item to the active basket.
                 </CardDescription>
               </div>
-              <Badge
-                variant={scannerListening ? "secondary" : "outline"}
-                className={scannerListening ? "bg-emerald-600 text-emerald-50" : undefined}
-              >
-                {scannerListening ? "Listening" : "Paused"}
-              </Badge>
             </CardHeader>
             <CardContent>
               <form

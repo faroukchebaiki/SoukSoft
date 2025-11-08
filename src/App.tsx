@@ -23,6 +23,7 @@ import { MainPage } from "@/pages/MainPage";
 import { AllItems } from "@/pages/AllItems";
 import { PurchaseHistory } from "@/pages/PurchaseHistory";
 import { Settings } from "@/pages/Settings";
+import { ProductBuilder } from "@/pages/ProductBuilder";
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
@@ -44,6 +45,8 @@ export default function App() {
         return <PurchaseHistory entries={purchaseHistory} />;
       case "Settings":
         return <Settings options={settingsOptions} />;
+      case "Product builder":
+        return <ProductBuilder />;
       default:
         return null;
     }

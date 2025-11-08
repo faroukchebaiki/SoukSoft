@@ -13,15 +13,13 @@ export function CheckoutSummaryPanel({
 }: CheckoutSummaryPanelProps) {
   return (
     <div className="space-y-6">
-      <div className="glass-panel border border-emerald-900/70 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 px-6 py-5 text-white shadow-[0_25px_80px_rgba(2,44,34,0.65)] dark:border-emerald-500/50 dark:from-emerald-500/25 dark:via-transparent dark:to-emerald-500/8 dark:text-emerald-100">
-        <div className="flex flex-col gap-2">
-          <span className="text-[0.7rem] font-medium uppercase tracking-[0.25em] text-white/90 drop-shadow-[0_2px_6px_rgba(16,185,129,0.45)] dark:text-emerald-200">
-            Totale
-          </span>
-          <span className="font-mono text-5xl font-bold tracking-[0.18em] leading-none text-white drop-shadow-[0_4px_12px_rgba(9,9,9,0.35)] dark:text-emerald-100 sm:text-[3.25rem]">
-            {totalDisplayValue}
-          </span>
-        </div>
+      <div className="rounded-3xl border border-black/60 bg-gradient-to-br from-black via-[#0b0d1c] to-[#101030] px-8 py-7 text-white shadow-[0_40px_90px_rgba(0,0,0,0.35)] dark:border-primary/20 dark:from-primary/20 dark:via-[#120a1f] dark:to-[#1b0c2f]">
+        <p className="text-xs uppercase tracking-[0.4em] text-white/70 dark:text-primary/70">
+          Totale
+        </p>
+        <p className="font-mono text-5xl font-semibold tracking-[0.18em] text-white dark:text-primary/90 sm:text-[3.5rem] drop-shadow-[0_6px_25px_rgba(0,0,0,0.45)]">
+          {totalDisplayValue}
+        </p>
       </div>
 
       <Card>

@@ -23,24 +23,14 @@ import {
 } from "@/components/ui/card";
 import { VAT_RATE } from "@/data/mockData";
 import { formatCurrency, formatQuantity } from "@/lib/format";
-import type {
-  CartItem,
-  CatalogProduct,
-  CheckoutTotals,
-  PaymentMethod,
-} from "@/types";
+import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
 
 interface MainPageProps {
   initialCartItems: CartItem[];
-  paymentMethods: PaymentMethod[];
   availableProducts: CatalogProduct[];
 }
 
-export function MainPage({
-  initialCartItems,
-  paymentMethods,
-  availableProducts,
-}: MainPageProps) {
+export function MainPage({ initialCartItems, availableProducts }: MainPageProps) {
   const [basketItems, setBasketItems] = useState<CartItem[]>(() => initialCartItems);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
@@ -129,6 +119,10 @@ export function MainPage({
     [appendActivity],
   );
 
+  const focusScannerInput = useCallback(() => {
+    scannerInputRef.current?.focus();
+  }, []);
+
   const handleScanSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -143,7 +137,7 @@ export function MainPage({
       upsertItem(product, scannerQty);
       setScannerInput("");
       setScannerQty(1);
-      scannerInputRef.current?.focus();
+      focusScannerInput();
     },
     [
       appendActivity,
@@ -152,6 +146,7 @@ export function MainPage({
       scannerListening,
       scannerQty,
       upsertItem,
+      focusScannerInput,
     ],
   );
 
@@ -204,6 +199,43 @@ export function MainPage({
     appendActivity("Receipt printed");
     window.print();
   }, [appendActivity]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      switch (key) {
+        case "f1":
+          event.preventDefault();
+          focusScannerInput();
+          break;
+        case "f2":
+          event.preventDefault();
+          setManualMode((prev) => !prev);
+          break;
+        case "f3":
+          event.preventDefault();
+          setScannerListening((prev) => !prev);
+          break;
+        case "f4":
+          event.preventDefault();
+          handlePrintReceipt();
+          break;
+        case "f5":
+          event.preventDefault();
+          handleCancelBasket();
+          break;
+        case "f9":
+          event.preventDefault();
+          handleFinishBasket();
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handlePrintReceipt]);
+
 
   return (
     <div className="page-shell flex h-full flex-col">
@@ -282,6 +314,7 @@ export function MainPage({
               ) : null}
             </CardContent>
           </Card>
+
 
           <Card className="flex min-h-0 flex-1 flex-col">
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -443,19 +476,27 @@ export function MainPage({
           <CheckoutSummaryPanel totals={totals} totalDisplayValue={totalDisplayValue} />
           <Card>
             <CardHeader>
-              <CardTitle>Payment shortcuts</CardTitle>
-              <CardDescription>Select tender when the customer is ready.</CardDescription>
+              <CardTitle>Keyboard shortcuts</CardTitle>
+              <CardDescription>Use function keys to stay off the touchscreen.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {paymentMethods.map(({ label, icon: Icon }) => (
-                <Button
-                  key={label}
-                  variant="outline"
-                  className="flex-1 min-w-[140px] justify-start gap-2"
+            <CardContent className="space-y-3">
+              {[
+                { combo: "F1", action: "Focus barcode input", handler: focusScannerInput },
+                { combo: "F2", action: "Toggle manual add", handler: () => setManualMode((prev) => !prev) },
+                { combo: "F3", action: "Pause / resume scanner", handler: () => setScannerListening((prev) => !prev) },
+                { combo: "F4", action: "Print receipt", handler: handlePrintReceipt },
+                { combo: "F5", action: "Cancel basket", handler: handleCancelBasket },
+                { combo: "F9", action: "Validate & next basket", handler: handleFinishBasket },
+              ].map(({ combo, action, handler }) => (
+                <button
+                  key={combo}
+                  type="button"
+                  onClick={handler}
+                  className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm"
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Button>
+                  <span className="text-muted-foreground">{action}</span>
+                  <span className="rounded-md bg-muted px-3 py-1 font-mono text-xs">{combo}</span>
+                </button>
               ))}
             </CardContent>
           </Card>

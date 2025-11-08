@@ -12,7 +12,6 @@ import {
   cartItems,
   navigation,
   catalogProducts,
-  paymentMethods,
   purchaseHistory,
   settingsOptions,
   activeUser,
@@ -35,7 +34,6 @@ export default function App() {
         return (
           <MainPage
             initialCartItems={cartItems}
-            paymentMethods={paymentMethods}
             availableProducts={catalogProducts}
           />
         );

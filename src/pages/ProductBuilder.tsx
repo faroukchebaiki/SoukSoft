@@ -33,11 +33,39 @@ const emptyForm: ProductFormState = {
   imageData: "",
 };
 
+const DRAFT_STORAGE_KEY = "product-builder-form-draft";
+
+function isBrowser() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function readDraftForm(): ProductFormState | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ProductFormState>;
+    return { ...emptyForm, ...parsed };
+  } catch {
+    return null;
+  }
+}
+
+function persistDraftForm(value: ProductFormState | null) {
+  if (!isBrowser()) return;
+  if (!value) {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+    return;
+  }
+  window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(value));
+}
+
 export function ProductBuilder() {
   const [products, setProducts] = useState<CatalogProduct[]>(() => getStoredProducts());
-  const [form, setForm] = useState<ProductFormState>(emptyForm);
+  const [form, setForm] = useState<ProductFormState>(() => readDraftForm() ?? emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const filteredProducts = useMemo(() => {
     if (!filter.trim()) return products;
@@ -49,6 +77,8 @@ export function ProductBuilder() {
         product.barcode?.toLowerCase().includes(value),
     );
   }, [filter, products]);
+
+  const loadDraftOrEmpty = () => readDraftForm() ?? emptyForm;
 
   const handleFormChange = (key: keyof ProductFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -101,6 +131,8 @@ export function ProductBuilder() {
 
     setForm(emptyForm);
     setEditingId(null);
+    setIsFormOpen(false);
+    persistDraftForm(null);
   };
 
   const handleEdit = (product: CatalogProduct) => {
@@ -117,6 +149,7 @@ export function ProductBuilder() {
       imageData: product.imageData ?? "",
     });
     setEditingId(product.id);
+    setIsFormOpen(true);
   };
 
   const handleDelete = (productId: string) => {
@@ -127,16 +160,37 @@ export function ProductBuilder() {
     });
     if (editingId === productId) {
       setEditingId(null);
-      setForm(emptyForm);
+      setForm(loadDraftOrEmpty());
+      setIsFormOpen(false);
     }
   };
 
   const handleReset = () => {
     const defaults = resetProducts();
     setProducts(defaults);
-    setForm(emptyForm);
+    setForm(loadDraftOrEmpty());
     setEditingId(null);
+    setIsFormOpen(false);
     setFilter("");
+    persistDraftForm(null);
+  };
+
+  const handleOpenNewProduct = () => {
+    setForm(loadDraftOrEmpty());
+    setEditingId(null);
+    setIsFormOpen(true);
+  };
+
+  const handleCancelForm = () => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    setForm(loadDraftOrEmpty());
+  };
+
+  const handleSaveDraft = () => {
+    persistDraftForm(form);
+    setIsFormOpen(false);
+    setEditingId(null);
   };
 
   return (
@@ -153,209 +207,14 @@ export function ProductBuilder() {
             <RefreshCcw className="h-4 w-4" />
             Reset to defaults
           </Button>
-          <Button
-            className="gap-2"
-            onClick={() => {
-              setForm(emptyForm);
-              setEditingId(null);
-            }}
-          >
+          <Button className="gap-2" onClick={handleOpenNewProduct}>
             <Plus className="h-4 w-4" />
-            New product
+            Add product
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_2fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? "Edit product" : "Create product"}</CardTitle>
-            <CardDescription>
-              Fill in the details and save. A barcode entry is required for register scans.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="grid gap-6 lg:grid-cols-2">
-                <section className="rounded-2xl border bg-card/60 p-4">
-                  <div className="mb-4">
-                    <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                      General
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Reference data for scanners and supplier catalogs.
-                    </p>
-                  </div>
-                  <div className="grid gap-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="flex flex-col text-sm font-medium">
-                        Name
-                        <input
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.name}
-                          onChange={(event) => handleFormChange("name", event.target.value)}
-                          required
-                        />
-                      </label>
-                      <label className="flex flex-col text-sm font-medium">
-                        SKU
-                        <input
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.sku}
-                          onChange={(event) => handleFormChange("sku", event.target.value)}
-                          required
-                        />
-                      </label>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="flex flex-col text-sm font-medium">
-                        Barcode / QR code
-                        <input
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.barcode}
-                          onChange={(event) => handleFormChange("barcode", event.target.value)}
-                          required
-                        />
-                      </label>
-                      <label className="flex flex-col text-sm font-medium">
-                        Category
-                        <input
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.category}
-                          onChange={(event) => handleFormChange("category", event.target.value)}
-                        />
-                      </label>
-                    </div>
-                    <label className="flex flex-col text-sm font-medium">
-                      Unit
-                      <select
-                        className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={form.unit}
-                        onChange={(event) => handleFormChange("unit", event.target.value)}
-                      >
-                        <option value="pcs">Pieces</option>
-                        <option value="kg">Kilograms</option>
-                      </select>
-                    </label>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border bg-card/60 p-4 space-y-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                      Pricing
-                    </p>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <label className="flex flex-col text-sm font-medium">
-                        Buying price (DA)
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.buyPrice}
-                          onChange={(event) => handleFormChange("buyPrice", event.target.value)}
-                        />
-                      </label>
-                      <label className="flex flex-col text-sm font-medium">
-                        Selling price (DA)
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          required
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.sellPrice}
-                          onChange={(event) => handleFormChange("sellPrice", event.target.value)}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                      Inventory & expiration
-                    </p>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <label className="flex flex-col text-sm font-medium">
-                        Stock on hand
-                        <input
-                          type="number"
-                          min="0"
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.stockQty}
-                          onChange={(event) => handleFormChange("stockQty", event.target.value)}
-                        />
-                      </label>
-                      <label className="flex flex-col text-sm font-medium">
-                        Expiration date
-                        <input
-                          type="date"
-                          className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={form.expirationDate}
-                          onChange={(event) =>
-                            handleFormChange("expirationDate", event.target.value)
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              <section className="flex flex-col gap-4 rounded-2xl border bg-card/60 p-4 md:flex-row md:items-center">
-                <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-2xl border bg-muted/40 md:w-40">
-                  {form.imageData ? (
-                    <img
-                      src={form.imageData}
-                      alt={form.name || "Product preview"}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center text-muted-foreground">
-                      <ImagePlus className="mb-1 h-6 w-6" />
-                      <span className="text-xs">No image</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 text-sm">
-                  <div>
-                    <p className="font-medium">Product image</p>
-                    <p className="text-muted-foreground">
-                      Optional reference shot to help the register team identify packaging.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border bg-background px-4 py-2 font-medium">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="sr-only"
-                        onChange={handleImageUpload}
-                      />
-                      Upload image
-                    </label>
-                    {form.imageData ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => handleFormChange("imageData", "")}
-                      >
-                        Remove
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
-
-              <Button type="submit" className="w-full gap-2">
-                <Save className="h-4 w-4" />
-                {editingId ? "Update product" : "Save product"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-6">
         <Card className="min-h-[420px]">
           <CardHeader>
             <CardTitle>Registered products</CardTitle>
@@ -453,6 +312,214 @@ export function ProductBuilder() {
           </CardContent>
         </Card>
       </div>
+
+      {isFormOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+          <div className="w-full max-w-5xl">
+            <Card className="rounded-[2rem]">
+              <CardHeader className="pb-0">
+                <CardTitle>{editingId ? "Edit product" : "Create product"}</CardTitle>
+                <CardDescription>
+                  Fill in the required data. Barcodes are mandatory so the register scanners can pick
+                  up the item.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <section className="rounded-2xl border bg-card/60 p-4">
+                      <div className="mb-4">
+                        <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+                          General
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Reference data for scanners and supplier catalogs.
+                        </p>
+                      </div>
+                      <div className="grid gap-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="flex flex-col text-sm font-medium">
+                            Name
+                            <input
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.name}
+                              onChange={(event) => handleFormChange("name", event.target.value)}
+                              required
+                            />
+                          </label>
+                          <label className="flex flex-col text-sm font-medium">
+                            SKU
+                            <input
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.sku}
+                              onChange={(event) => handleFormChange("sku", event.target.value)}
+                              required
+                            />
+                          </label>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="flex flex-col text-sm font-medium">
+                            Barcode / QR code
+                            <input
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.barcode}
+                              onChange={(event) => handleFormChange("barcode", event.target.value)}
+                              required
+                            />
+                          </label>
+                          <label className="flex flex-col text-sm font-medium">
+                            Category
+                            <input
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.category}
+                              onChange={(event) => handleFormChange("category", event.target.value)}
+                            />
+                          </label>
+                        </div>
+                        <label className="flex flex-col text-sm font-medium">
+                          Unit
+                          <select
+                            className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                            value={form.unit}
+                            onChange={(event) => handleFormChange("unit", event.target.value)}
+                          >
+                            <option value="pcs">Pieces</option>
+                            <option value="kg">Kilograms</option>
+                          </select>
+                        </label>
+                      </div>
+                    </section>
+
+                    <section className="space-y-6 rounded-2xl border bg-card/60 p-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+                          Pricing
+                        </p>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          <label className="flex flex-col text-sm font-medium">
+                            Buying price (DA)
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.buyPrice}
+                              onChange={(event) => handleFormChange("buyPrice", event.target.value)}
+                            />
+                          </label>
+                          <label className="flex flex-col text-sm font-medium">
+                            Selling price (DA)
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              required
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.sellPrice}
+                              onChange={(event) =>
+                                handleFormChange("sellPrice", event.target.value)
+                              }
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+                          Inventory & expiration
+                        </p>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          <label className="flex flex-col text-sm font-medium">
+                            Stock on hand
+                            <input
+                              type="number"
+                              min="0"
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.stockQty}
+                              onChange={(event) => handleFormChange("stockQty", event.target.value)}
+                            />
+                          </label>
+                          <label className="flex flex-col text-sm font-medium">
+                            Expiration date
+                            <input
+                              type="date"
+                              className="mt-1 rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={form.expirationDate}
+                              onChange={(event) =>
+                                handleFormChange("expirationDate", event.target.value)
+                              }
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+
+                  <section className="flex flex-col gap-4 rounded-2xl border bg-card/60 p-4 md:flex-row md:items-center">
+                    <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-2xl border bg-muted/40 md:w-40">
+                      {form.imageData ? (
+                        <img
+                          src={form.imageData}
+                          alt={form.name || "Product preview"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center text-muted-foreground">
+                          <ImagePlus className="mb-1 h-6 w-6" />
+                          <span className="text-xs">No image</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-3 text-sm">
+                      <div>
+                        <p className="font-medium">Product image</p>
+                        <p className="text-muted-foreground">
+                          Optional reference shot to help the register team identify packaging.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border bg-background px-4 py-2 font-medium">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={handleImageUpload}
+                          />
+                          Upload image
+                        </label>
+                        {form.imageData ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handleFormChange("imageData", "")}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </section>
+
+                  <div className="flex flex-wrap justify-end gap-3">
+                    <Button type="button" variant="outline" onClick={handleCancelForm}>
+                      Cancel
+                    </Button>
+                    {!editingId ? (
+                      <Button type="button" variant="secondary" onClick={handleSaveDraft}>
+                        Save as draft
+                      </Button>
+                    ) : null}
+                    <Button type="submit" className="gap-2">
+                      <Save className="h-4 w-4" />
+                      {editingId ? "Update product" : "Save product"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -88,9 +88,13 @@ export interface CatalogProduct {
   category: string;
   unit: UnitType;
   price: number;
+  sellPrice?: number;
+  buyPrice?: number;
   stockQty: number;
   minQty?: number;
   barcode?: string;
+  expirationDate?: string;
+  imageData?: string;
 }
 
 export interface PurchaseHistoryEntry {

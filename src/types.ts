@@ -97,6 +97,14 @@ export interface CatalogProduct {
   imageData?: string;
 }
 
+export interface PurchaseLineItem {
+  sku: string;
+  name: string;
+  qty: number;
+  unit: UnitType;
+  price: number;
+}
+
 export interface PurchaseHistoryEntry {
   id: string;
   cashier: string;
@@ -104,4 +112,8 @@ export interface PurchaseHistoryEntry {
   items: number;
   paymentMethod: string;
   completedAt: string;
+  customerName?: string;
+  customerId?: string;
+  notes?: string;
+  lineItems?: PurchaseLineItem[];
 }

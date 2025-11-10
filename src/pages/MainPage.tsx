@@ -9,7 +9,7 @@ import {
   ScanLine,
   Trash2,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { Badge } from "@/components/ui/badge";
@@ -30,25 +30,29 @@ interface MainPageProps {
   availableProducts: CatalogProduct[];
 }
 
+interface ActivityLogEntry {
+  id: string;
+  message: string;
+}
+
 export function MainPage({ initialCartItems, availableProducts }: MainPageProps) {
   const [basketItems, setBasketItems] = useState<CartItem[]>(() => initialCartItems);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [scannerQty, setScannerQty] = useState(1);
-  const [activityLog, setActivityLog] = useState<string[]>([]);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [manualMode, setManualMode] = useState(false);
   const [manualProductId, setManualProductId] = useState(
     availableProducts[0]?.id ?? "",
   );
   const [manualQty, setManualQty] = useState(1);
-  const [basketVersion, setBasketVersion] = useState(0);
   const scannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scannerListening) {
       scannerInputRef.current?.focus();
     }
-  }, [scannerListening, basketVersion]);
+  }, [scannerListening]);
 
   const totals = useMemo<CheckoutTotals>(() => {
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -86,7 +90,11 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
   }, [totals.total]);
 
   const appendActivity = useCallback((line: string) => {
-    setActivityLog((log) => [line, ...log].slice(0, 4));
+    const entry: ActivityLogEntry = {
+      id: crypto.randomUUID?.() ?? `log-${Date.now()}-${Math.random()}`,
+      message: line,
+    };
+    setActivityLog((log) => [entry, ...log].slice(0, 4));
   }, []);
 
   const upsertItem = useCallback(
@@ -181,8 +189,8 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
   const handleCancelBasket = useCallback(() => {
     setBasketItems(initialCartItems);
     appendActivity("Basket restored to saved state");
-    setBasketVersion((version) => version + 1);
-  }, [appendActivity, initialCartItems]);
+    focusScannerInput();
+  }, [appendActivity, focusScannerInput, initialCartItems]);
 
   const handleFinishBasket = useCallback(() => {
     appendActivity(
@@ -192,8 +200,8 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
       }).format(new Date())}`,
     );
     setBasketItems([]);
-    setBasketVersion((version) => version + 1);
-  }, [appendActivity]);
+    focusScannerInput();
+  }, [appendActivity, focusScannerInput]);
 
   const handlePrintReceipt = useCallback(() => {
     appendActivity("Receipt printed");
@@ -304,10 +312,10 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
               </form>
               {activityLog.length > 0 ? (
                 <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  {activityLog.map((line, index) => (
-                    <p key={`${line}-${index}`} className="flex items-center gap-2">
+                  {activityLog.map((entry) => (
+                    <p key={entry.id} className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {line}
+                      {entry.message}
                     </p>
                   ))}
                 </div>

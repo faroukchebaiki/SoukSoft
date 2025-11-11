@@ -1,7 +1,7 @@
 import { catalogProducts } from "@/data/mockData";
 import type { CatalogProduct } from "@/types";
 
-const STORAGE_KEY = "souksoft-products";
+export const STORAGE_KEY = "souksoft-products";
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";

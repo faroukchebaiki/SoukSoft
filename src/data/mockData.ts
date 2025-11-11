@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   CreditCard,
   History,
   Package,
@@ -27,6 +28,7 @@ export const navigation: readonly NavigationItem[] = [
   { label: "All items", icon: Package },
   { label: "History", icon: History },
   { label: "Settings", icon: Settings },
+  { label: "Expiring items", icon: AlertTriangle },
   { label: "Product builder", icon: ShieldPlus },
 ] satisfies ReadonlyArray<NavigationItem>;
 

@@ -354,68 +354,72 @@ export function ProductBuilder() {
                             isLowStock ? "bg-destructive/5" : ""
                           }`}
                         >
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 overflow-hidden rounded-xl border bg-muted/40">
-                              {product.imageData ? (
-                                <img
-                                  src={product.imageData}
-                                  alt={product.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                                  <ImagePlus className="h-4 w-4" />
-                                </div>
-                              )}
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-12 w-12 overflow-hidden rounded-xl border bg-muted/40">
+                                {product.imageData ? (
+                                  <img
+                                    src={product.imageData}
+                                    alt={product.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                    <ImagePlus className="h-4 w-4" />
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">{product.category}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium">{product.name}</p>
-                              <p className="text-xs text-muted-foreground">{product.category}</p>
+                          </td>
+                          <td className="px-3 py-3">{product.sku}</td>
+                          <td className="px-3 py-3 text-muted-foreground">{product.barcode}</td>
+                          <td className="px-3 py-3 text-right">
+                            {formatCurrency(product.buyPrice ?? product.price)}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {formatCurrency(product.sellPrice ?? product.price)}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <span>{product.stockQty}</span>
+                            {isLowStock ? (
+                              <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                                Low
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {product.expirationDate
+                              ? new Date(product.expirationDate).toLocaleDateString("en-GB")
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
+                                Edit
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleDuplicate(product)}
+                              >
+                                <Copy className="h-4 w-4" />
+                                Duplicate
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(product.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">{product.sku}</td>
-                        <td className="px-3 py-3 text-muted-foreground">{product.barcode}</td>
-                        <td className="px-3 py-3 text-right">
-                          {formatCurrency(product.buyPrice ?? product.price)}
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          {formatCurrency(product.sellPrice ?? product.price)}
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <span>{product.stockQty}</span>
-                          {isLowStock ? (
-                            <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                              Low
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          {product.expirationDate
-                            ? new Date(product.expirationDate).toLocaleDateString("en-GB")
-                            : "—"}
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
-                              Edit
-                            </Button>
-                            <Button variant="secondary" size="sm" onClick={() => handleDuplicate(product)}>
-                              <Copy className="h-4 w-4" />
-                              Duplicate
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(product.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
                     );
                     })
                   )}

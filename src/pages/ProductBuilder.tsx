@@ -77,6 +77,13 @@ interface ImportPreviewState {
   summary: ImportSummary;
 }
 
+interface ImportHistoryEntry {
+  fileName: string;
+  appliedAt: number;
+  summary: ImportSummary;
+  previousProducts: CatalogProduct[];
+}
+
 function createProductId() {
   return crypto.randomUUID?.() ?? `PROD-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -275,6 +282,10 @@ function applyImportRecords(records: CsvRecord[], baseProducts: CatalogProduct[]
   return { nextProducts, summary };
 }
 
+function cloneProducts(products: CatalogProduct[]): CatalogProduct[] {
+  return products.map((product) => ({ ...product }));
+}
+
 function readDraftForm(): ProductFormState | null {
   if (!isBrowser()) return null;
   try {
@@ -307,6 +318,7 @@ export function ProductBuilder() {
   const [minQtyInput, setMinQtyInput] = useState("");
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
+  const [lastImportSnapshot, setLastImportSnapshot] = useState<ImportHistoryEntry | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -550,6 +562,7 @@ export function ProductBuilder() {
     setIsFormOpen(false);
     setFilter("");
     setSelectedIds(new Set());
+    setLastImportSnapshot(null);
     persistDraftForm(null);
   };
 
@@ -634,6 +647,7 @@ export function ProductBuilder() {
 
   const handleConfirmImport = () => {
     if (!importPreview) return;
+    const previousProducts = cloneProducts(products);
     const { nextProducts, summary } = applyImportRecords(importPreview.records, products);
     if (!summary.inserted.length && !summary.updated.length) {
       setImportFeedback("No changes detected in the selected file.");
@@ -645,6 +659,12 @@ export function ProductBuilder() {
     setImportFeedback(
       `Imported ${summary.inserted.length} new, updated ${summary.updated.length}, skipped ${summary.skipped}.`,
     );
+    setLastImportSnapshot({
+      fileName: importPreview.fileName,
+      appliedAt: Date.now(),
+      summary,
+      previousProducts,
+    });
     setImportPreview(null);
     setSelectedIds(new Set());
   };
@@ -652,6 +672,22 @@ export function ProductBuilder() {
   const handleCancelImportPreview = () => {
     setImportPreview(null);
     setImportFeedback("Import preview discarded.");
+  };
+
+  const handleUndoImport = () => {
+    if (!lastImportSnapshot) return;
+    const restored = cloneProducts(lastImportSnapshot.previousProducts);
+    setProducts(restored);
+    saveProducts(restored);
+    setImportFeedback(
+      `Undid import from ${new Date(lastImportSnapshot.appliedAt).toLocaleString()} (${lastImportSnapshot.summary.inserted.length} new / ${lastImportSnapshot.summary.updated.length} updated).`,
+    );
+    setLastImportSnapshot(null);
+    setSelectedIds(new Set());
+  };
+
+  const handleDismissUndoSnapshot = () => {
+    setLastImportSnapshot(null);
   };
 
   const handleApplyMarkup = () => {
@@ -780,6 +816,34 @@ export function ProductBuilder() {
             </div>
             {importFeedback ? (
               <p className="text-xs text-muted-foreground">{importFeedback}</p>
+            ) : null}
+            {lastImportSnapshot ? (
+              <div className="flex flex-col gap-2 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-blue-600 dark:text-blue-300">
+                    Undo available
+                  </p>
+                  <p className="font-semibold">{lastImportSnapshot.fileName}</p>
+                  <p className="text-xs">
+                    Applied {new Date(lastImportSnapshot.appliedAt).toLocaleTimeString()} ·{" "}
+                    {lastImportSnapshot.summary.inserted.length} new /{" "}
+                    {lastImportSnapshot.summary.updated.length} updated
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-2 bg-blue-600 text-white hover:bg-blue-500"
+                    onClick={handleUndoImport}
+                  >
+                    Undo last import
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={handleDismissUndoSnapshot}>
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
             ) : null}
             {importPreview ? (
               <div className="space-y-3 rounded-2xl border bg-card/60 p-4 text-sm">

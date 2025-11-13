@@ -1,5 +1,16 @@
-import { Copy, ImagePlus, Plus, Printer, RefreshCcw, Save, Trash2, Wand2 } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
+import {
+  Copy,
+  Download,
+  ImagePlus,
+  Plus,
+  Printer,
+  RefreshCcw,
+  Save,
+  Trash2,
+  Upload,
+  Wand2,
+} from "lucide-react";
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,9 +47,153 @@ const emptyForm: ProductFormState = {
 };
 
 const DRAFT_STORAGE_KEY = "product-builder-form-draft";
+const CSV_HEADERS = [
+  "name",
+  "sku",
+  "barcode",
+  "category",
+  "unit",
+  "buyPrice",
+  "sellPrice",
+  "stockQty",
+  "minQty",
+  "expirationDate",
+] as const;
+
+type CsvField = (typeof CSV_HEADERS)[number];
+type CsvRecord = Record<CsvField, string>;
+
+function createProductId() {
+  return crypto.randomUUID?.() ?? `PROD-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function escapeCsvValue(value: string) {
+  if (value.includes('"') || value.includes(",") || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function splitCsvLine(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === '"') {
+      const nextChar = line[index + 1];
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (char === "," && !inQuotes) {
+      cells.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  cells.push(current);
+  return cells;
+}
+
+function parseCsvRecords(text: string): CsvRecord[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const lines = trimmed.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (!lines.length) return [];
+  const headerLine = lines[0].replace(/^\uFEFF/, "");
+  const headerCells = splitCsvLine(headerLine);
+  const headerLookup = new Map<string, CsvField>();
+  CSV_HEADERS.forEach((field) => headerLookup.set(field.toLowerCase(), field));
+  const columnIndexes = new Map<CsvField, number>();
+  headerCells.forEach((cell, index) => {
+    const key = cell.trim().toLowerCase();
+    const field = headerLookup.get(key);
+    if (field) {
+      columnIndexes.set(field, index);
+    }
+  });
+  const records: CsvRecord[] = [];
+  for (const line of lines.slice(1)) {
+    const values = splitCsvLine(line);
+    const record: Partial<CsvRecord> = {};
+    for (const field of CSV_HEADERS) {
+      const columnIndex = columnIndexes.get(field);
+      const value = columnIndex !== undefined ? values[columnIndex] ?? "" : "";
+      record[field] = value.trim();
+    }
+    records.push(record as CsvRecord);
+  }
+  return records;
+}
+
+function normalizeUnit(value: string | undefined, fallback: UnitType): UnitType {
+  if (!value) return fallback;
+  const normalized = value.toLowerCase();
+  return normalized === "kg" ? "kg" : normalized === "pcs" ? "pcs" : fallback;
+}
+
+function buildProductFromRecord(record: CsvRecord, existing?: CatalogProduct): CatalogProduct | null {
+  const name = record.name?.trim() || existing?.name;
+  const sku = record.sku?.trim() || existing?.sku;
+  if (!name || !sku) return null;
+
+  const parseNumber = (value: string) => {
+    if (!value?.trim()) return undefined;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : undefined;
+  };
+
+  const buyPrice = parseNumber(record.buyPrice) ?? existing?.buyPrice;
+  const parsedSell = parseNumber(record.sellPrice);
+  const fallbackSell = existing?.sellPrice ?? existing?.price ?? buyPrice ?? 0;
+  const sellPrice = parsedSell ?? fallbackSell;
+
+  const stockQty = parseNumber(record.stockQty) ?? existing?.stockQty ?? 0;
+  const minQty = parseNumber(record.minQty) ?? existing?.minQty;
+  const expirationDate = record.expirationDate?.trim() || existing?.expirationDate;
+  const barcode = record.barcode?.trim() || existing?.barcode;
+  const unit = normalizeUnit(record.unit, existing?.unit ?? "pcs");
+
+  return {
+    id: existing?.id ?? createProductId(),
+    name,
+    sku,
+    barcode,
+    category: record.category?.trim() || existing?.category || "General",
+    unit,
+    buyPrice: buyPrice ?? undefined,
+    sellPrice,
+    price: sellPrice,
+    stockQty,
+    minQty,
+    expirationDate,
+    imageData: existing?.imageData,
+  };
+}
+
+function productToCsvRecord(product: CatalogProduct): CsvRecord {
+  return {
+    name: product.name,
+    sku: product.sku,
+    barcode: product.barcode ?? "",
+    category: product.category,
+    unit: product.unit,
+    buyPrice: product.buyPrice !== undefined ? String(product.buyPrice) : "",
+    sellPrice: product.sellPrice !== undefined ? String(product.sellPrice) : String(product.price),
+    stockQty: String(product.stockQty ?? 0),
+    minQty: product.minQty !== undefined ? String(product.minQty) : "",
+    expirationDate: product.expirationDate ?? "",
+  };
 }
 
 function readDraftForm(): ProductFormState | null {
@@ -68,6 +223,12 @@ export function ProductBuilder() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [markupInput, setMarkupInput] = useState("5");
+  const [minQtyInput, setMinQtyInput] = useState("");
+  const [importFeedback, setImportFeedback] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(() => {
     if (!filter.trim()) return products;
@@ -112,6 +273,32 @@ export function ProductBuilder() {
     return [form.barcode.trim()];
   }, [form.barcode]);
 
+  const selectedProducts = useMemo(() => {
+    if (selectedIds.size === 0) return [];
+    return products.filter((product) => selectedIds.has(product.id));
+  }, [products, selectedIds]);
+
+  const isAllFilteredSelected =
+    filteredProducts.length > 0 &&
+    filteredProducts.every((product) => selectedIds.has(product.id));
+  const someFilteredSelected = filteredProducts.some((product) => selectedIds.has(product.id));
+  const hasSelection = selectedIds.size > 0;
+  const parsedMarkupInput = Number(markupInput);
+  const parsedMinQtyInput = Number(minQtyInput);
+  const canApplyMarkup =
+    hasSelection && markupInput.trim().length > 0 && !Number.isNaN(parsedMarkupInput);
+  const canApplyMinQty =
+    hasSelection &&
+    minQtyInput.trim().length > 0 &&
+    !Number.isNaN(parsedMinQtyInput) &&
+    parsedMinQtyInput >= 0;
+  const exportDisabled = selectedProducts.length === 0 && filteredProducts.length === 0;
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = !isAllFilteredSelected && someFilteredSelected;
+  }, [isAllFilteredSelected, someFilteredSelected]);
+
   const loadDraftOrEmpty = () => readDraftForm() ?? emptyForm;
 
   const handleFormChange = (key: keyof ProductFormState, value: string) => {
@@ -138,7 +325,7 @@ export function ProductBuilder() {
     const buyPriceValue = Number(form.buyPrice) || 0;
     const sellPriceValue = Number(form.sellPrice) || 0;
     const nextProduct: CatalogProduct = {
-      id: editingId ?? crypto.randomUUID?.() ?? `PROD-${Date.now()}`,
+      id: editingId ?? createProductId(),
       name: form.name,
       sku: form.sku,
       barcode: form.barcode,
@@ -195,6 +382,38 @@ export function ProductBuilder() {
     handleFormChange("barcode", "");
   };
 
+  const handleToggleSelect = (productId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (!filteredProducts.length) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const shouldSelectAll = !filteredProducts.every((product) => next.has(product.id));
+      filteredProducts.forEach((product) => {
+        if (shouldSelectAll) {
+          next.add(product.id);
+        } else {
+          next.delete(product.id);
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
   const productToFormState = (product: CatalogProduct): ProductFormState => ({
     name: product.name,
     sku: product.sku,
@@ -235,6 +454,12 @@ export function ProductBuilder() {
       setForm(loadDraftOrEmpty());
       setIsFormOpen(false);
     }
+    setSelectedIds((prev) => {
+      if (!prev.has(productId)) return prev;
+      const next = new Set(prev);
+      next.delete(productId);
+      return next;
+    });
   };
 
   const handleReset = () => {
@@ -244,6 +469,7 @@ export function ProductBuilder() {
     setEditingId(null);
     setIsFormOpen(false);
     setFilter("");
+    setSelectedIds(new Set());
     persistDraftForm(null);
   };
 
@@ -263,6 +489,123 @@ export function ProductBuilder() {
     persistDraftForm(form);
     setIsFormOpen(false);
     setEditingId(null);
+  };
+
+  const handleExportCsv = () => {
+    if (!isBrowser()) return;
+    const target = selectedProducts.length > 0 ? selectedProducts : filteredProducts;
+    if (!target.length) return;
+    const rows = target.map((product) => {
+      const csvRecord = productToCsvRecord(product);
+      return CSV_HEADERS.map((field) => escapeCsvValue(csvRecord[field] ?? "")).join(",");
+    });
+    const csvContent = [CSV_HEADERS.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `products-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCsv = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Reset to allow uploading the same file twice in a row.
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        setImportFeedback("Unable to read the CSV file.");
+        return;
+      }
+      let records: CsvRecord[] = [];
+      try {
+        records = parseCsvRecords(reader.result);
+      } catch {
+        setImportFeedback("Unable to parse the CSV file.");
+        return;
+      }
+      if (!records.length) {
+        setImportFeedback("No rows detected in the CSV file.");
+        return;
+      }
+      let inserted = 0;
+      let updated = 0;
+      setProducts((prev) => {
+        const next = [...prev];
+        const skuIndex = new Map(prev.map((product, index) => [product.sku, index]));
+        for (const record of records) {
+          const sku = record.sku?.trim();
+          if (!sku) continue;
+          const existingIndex = skuIndex.get(sku);
+          const existingProduct = existingIndex !== undefined ? next[existingIndex] : undefined;
+          const nextProduct = buildProductFromRecord(record, existingProduct);
+          if (!nextProduct) continue;
+          if (existingIndex !== undefined) {
+            next[existingIndex] = nextProduct;
+            updated += 1;
+          } else {
+            next.push(nextProduct);
+            skuIndex.set(sku, next.length - 1);
+            inserted += 1;
+          }
+        }
+        if (!inserted && !updated) {
+          return prev;
+        }
+        saveProducts(next);
+        return next;
+      });
+      if (inserted || updated) {
+        setImportFeedback(`Imported ${inserted} new product(s), updated ${updated}.`);
+        setSelectedIds(new Set());
+      } else {
+        setImportFeedback("No valid rows detected in the CSV file.");
+      }
+    };
+    reader.onerror = () => {
+      setImportFeedback("Failed to read the CSV file.");
+    };
+    reader.readAsText(file);
+  };
+
+  const handleApplyMarkup = () => {
+    if (!hasSelection) return;
+    const percent = Number(markupInput);
+    if (Number.isNaN(percent)) return;
+    setProducts((prev) => {
+      const next = prev.map((product) => {
+        if (!selectedIds.has(product.id)) return product;
+        const baseSell = product.sellPrice ?? product.price;
+        const updatedSell = Number((baseSell * (1 + percent / 100)).toFixed(2));
+        return {
+          ...product,
+          sellPrice: updatedSell,
+          price: updatedSell,
+        };
+      });
+      saveProducts(next);
+      return next;
+    });
+  };
+
+  const handleApplyMinQty = () => {
+    if (!hasSelection) return;
+    const qty = Number(minQtyInput);
+    if (Number.isNaN(qty) || qty < 0) return;
+    setProducts((prev) => {
+      const next = prev.map((product) =>
+        selectedIds.has(product.id) ? { ...product, minQty: qty } : product,
+      );
+      saveProducts(next);
+      return next;
+    });
+  };
+
+  const handleImportButtonClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -316,16 +659,112 @@ export function ProductBuilder() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              placeholder="Search by name, SKU, or barcode"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-            />
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm lg:max-w-sm"
+                placeholder="Search by name, SKU, or barcode"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={handleImportCsv}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleImportButtonClick}
+                >
+                  <Upload className="h-4 w-4" />
+                  Import CSV
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleExportCsv}
+                  disabled={exportDisabled}
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+            {importFeedback ? (
+              <p className="text-xs text-muted-foreground">{importFeedback}</p>
+            ) : null}
+            {hasSelection ? (
+              <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-4 text-sm md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Batch edit</p>
+                  <p className="text-sm font-semibold">{selectedIds.size} selected</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium">Markup (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+                      value={markupInput}
+                      onChange={(event) => setMarkupInput(event.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-2 bg-blue-600 text-white hover:bg-blue-500"
+                      onClick={handleApplyMarkup}
+                      disabled={!canApplyMarkup}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium">Min qty</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+                      value={minQtyInput}
+                      onChange={(event) => setMinQtyInput(event.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                      onClick={handleApplyMinQty}
+                      disabled={!canApplyMinQty}
+                    >
+                      Set
+                    </Button>
+                  </div>
+                  <Button type="button" size="sm" variant="ghost" onClick={handleClearSelection}>
+                    Clear selection
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <div className="max-h-[420px] overflow-auto rounded-2xl border">
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                   <tr>
+                    <th className="w-10 px-3 py-2 text-left">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        className="size-4 rounded border"
+                        checked={isAllFilteredSelected && filteredProducts.length > 0}
+                        onChange={handleToggleSelectAll}
+                        aria-checked={
+                          !isAllFilteredSelected && someFilteredSelected ? "mixed" : undefined
+                        }
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left">Product</th>
                     <th className="px-3 py-2 text-left">SKU</th>
                     <th className="px-3 py-2 text-left">Barcode</th>
@@ -339,7 +778,7 @@ export function ProductBuilder() {
                 <tbody className="divide-y divide-border bg-background">
                   {filteredProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                      <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
                         Nothing matches your search.
                       </td>
                     </tr>
@@ -354,6 +793,14 @@ export function ProductBuilder() {
                             isLowStock ? "bg-destructive/5" : ""
                           }`}
                         >
+                          <td className="px-3 py-3 align-top">
+                            <input
+                              type="checkbox"
+                              className="size-4 rounded border"
+                              checked={selectedIds.has(product.id)}
+                              onChange={() => handleToggleSelect(product.id)}
+                            />
+                          </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-3">
                               <div className="h-12 w-12 overflow-hidden rounded-xl border bg-muted/40">

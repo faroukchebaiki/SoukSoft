@@ -232,6 +232,11 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     [promotions],
   );
 
+  const activePromotions = useMemo(
+    () => promotions.filter((promotion) => promotion.status === "Active"),
+    [promotions],
+  );
+
   const handleApplyPromotion = (promotion: Promotion) => {
     const product = availableProducts.find((item) => item.sku === promotion.sku);
     if (!product) {
@@ -254,6 +259,11 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
   };
 
   const handleDismissPromotion = (promotionId: string) => {
+    clearPromotion(promotionId);
+    setPromotions(getPromotions());
+  };
+
+  const handleRevertPromotion = (promotionId: string) => {
     clearPromotion(promotionId);
     setPromotions(getPromotions());
   };
@@ -589,7 +599,12 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
         </section>
 
         <aside className="flex min-h-0 flex-col gap-6">
-          <CheckoutSummaryPanel totals={totals} totalDisplayValue={totalDisplayValue} />
+          <CheckoutSummaryPanel
+            totals={totals}
+            totalDisplayValue={totalDisplayValue}
+            activePromotionsCount={activePromotions.length}
+            onRevertPromotion={activePromotions.length ? () => handleRevertPromotion(activePromotions[0].id) : undefined}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Keyboard shortcuts</CardTitle>

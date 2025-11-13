@@ -5,11 +5,15 @@ import type { CheckoutTotals } from "@/types";
 interface CheckoutSummaryPanelProps {
   totals: CheckoutTotals;
   totalDisplayValue: string;
+  activePromotionsCount?: number;
+  onRevertPromotion?: () => void;
 }
 
 export function CheckoutSummaryPanel({
   totals,
   totalDisplayValue,
+  activePromotionsCount = 0,
+  onRevertPromotion,
 }: CheckoutSummaryPanelProps) {
   return (
     <div className="space-y-6">
@@ -37,6 +41,22 @@ export function CheckoutSummaryPanel({
             <div className="flex items-center justify-between text-emerald-500 dark:text-emerald-400">
               <span>Discounts applied</span>
               <span>−{formatCurrency(totals.discounts)}</span>
+            </div>
+          ) : null}
+          {activePromotionsCount > 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+              <p className="font-semibold">
+                {activePromotionsCount} promotion{activePromotionsCount > 1 ? "s" : ""} applied
+              </p>
+              {onRevertPromotion ? (
+                <button
+                  type="button"
+                  onClick={onRevertPromotion}
+                  className="mt-2 rounded-lg bg-amber-100/80 px-3 py-1 font-semibold text-amber-900 hover:bg-amber-100 dark:bg-amber-400/20 dark:text-amber-50"
+                >
+                  Revert promotions
+                </button>
+              ) : null}
             </div>
           ) : null}
           <div className="flex items-center justify-between text-lg font-semibold">

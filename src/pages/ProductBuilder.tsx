@@ -1,4 +1,4 @@
-import { ImagePlus, Plus, Printer, RefreshCcw, Save, Trash2, Wand2 } from "lucide-react";
+import { Copy, ImagePlus, Plus, Printer, RefreshCcw, Save, Trash2, Wand2 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,6 +79,22 @@ export function ProductBuilder() {
         product.barcode?.toLowerCase().includes(value),
     );
   }, [filter, products]);
+
+  const inventoryStats = useMemo(() => {
+    const summary = {
+      skuCount: products.length,
+      stockValue: 0,
+      potentialRevenue: 0,
+    };
+    for (const product of products) {
+      const qty = Number(product.stockQty) || 0;
+      const buy = Number(product.buyPrice ?? product.price) || 0;
+      const sell = Number(product.sellPrice ?? product.price) || 0;
+      summary.stockValue += buy * qty;
+      summary.potentialRevenue += sell * qty;
+    }
+    return summary;
+  }, [products]);
 
   const profitStats = useMemo(() => {
     const buy = Number(form.buyPrice) || 0;
@@ -179,21 +195,32 @@ export function ProductBuilder() {
     handleFormChange("barcode", "");
   };
 
+  const productToFormState = (product: CatalogProduct): ProductFormState => ({
+    name: product.name,
+    sku: product.sku,
+    barcode: product.barcode ?? "",
+    category: product.category,
+    unit: product.unit,
+    buyPrice: product.buyPrice !== undefined ? String(product.buyPrice) : "",
+    sellPrice: String(product.sellPrice ?? product.price),
+    stockQty: String(product.stockQty),
+    minQty: product.minQty !== undefined ? String(product.minQty) : "",
+    expirationDate: product.expirationDate ?? "",
+    imageData: product.imageData ?? "",
+  });
+
   const handleEdit = (product: CatalogProduct) => {
-    setForm({
-      name: product.name,
-      sku: product.sku,
-      barcode: product.barcode ?? "",
-      category: product.category,
-      unit: product.unit,
-      buyPrice: product.buyPrice !== undefined ? String(product.buyPrice) : "",
-      sellPrice: String(product.sellPrice ?? product.price),
-      stockQty: String(product.stockQty),
-      minQty: product.minQty !== undefined ? String(product.minQty) : "",
-      expirationDate: product.expirationDate ?? "",
-      imageData: product.imageData ?? "",
-    });
+    setForm(productToFormState(product));
     setEditingId(product.id);
+    setIsFormOpen(true);
+  };
+
+  const handleDuplicate = (product: CatalogProduct) => {
+    const duplicateForm = productToFormState(product);
+    duplicateForm.sku = "";
+    duplicateForm.barcode = "";
+    setForm(duplicateForm);
+    setEditingId(null);
     setIsFormOpen(true);
   };
 
@@ -266,6 +293,27 @@ export function ProductBuilder() {
             <CardDescription>
               Only special accounts can see and edit these entries. Data lives in the browser for now.
             </CardDescription>
+            <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+              <div className="rounded-2xl border bg-card/60 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">SKUs</p>
+                <p className="text-2xl font-semibold">{inventoryStats.skuCount}</p>
+                <p className="text-xs text-muted-foreground">Tracked products</p>
+              </div>
+              <div className="rounded-2xl border bg-card/60 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Stock value</p>
+                <p className="text-xl font-semibold">{formatCurrency(inventoryStats.stockValue)}</p>
+                <p className="text-xs text-muted-foreground">Based on buy price</p>
+              </div>
+              <div className="rounded-2xl border bg-card/60 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  Potential revenue
+                </p>
+                <p className="text-xl font-semibold">
+                  {formatCurrency(inventoryStats.potentialRevenue)}
+                </p>
+                <p className="text-xs text-muted-foreground">Sell price × stock</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <input
@@ -296,8 +344,16 @@ export function ProductBuilder() {
                       </td>
                     </tr>
                   ) : (
-                    filteredProducts.map((product) => (
-                      <tr key={product.id}>
+                    filteredProducts.map((product) => {
+                      const minQty = product.minQty ?? 0;
+                      const isLowStock = product.stockQty <= minQty;
+                      return (
+                        <tr
+                          key={product.id}
+                          className={`transition-colors ${
+                            isLowStock ? "bg-destructive/5" : ""
+                          }`}
+                        >
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-3">
                             <div className="h-12 w-12 overflow-hidden rounded-xl border bg-muted/40">
@@ -327,7 +383,14 @@ export function ProductBuilder() {
                         <td className="px-3 py-3 text-right">
                           {formatCurrency(product.sellPrice ?? product.price)}
                         </td>
-                        <td className="px-3 py-3 text-right">{product.stockQty}</td>
+                        <td className="px-3 py-3 text-right">
+                          <span>{product.stockQty}</span>
+                          {isLowStock ? (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                              Low
+                            </span>
+                          ) : null}
+                        </td>
                         <td className="px-3 py-3 text-right">
                           {product.expirationDate
                             ? new Date(product.expirationDate).toLocaleDateString("en-GB")
@@ -337,6 +400,10 @@ export function ProductBuilder() {
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
                               Edit
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => handleDuplicate(product)}>
+                              <Copy className="h-4 w-4" />
+                              Duplicate
                             </Button>
                             <Button
                               variant="ghost"
@@ -349,7 +416,8 @@ export function ProductBuilder() {
                           </div>
                         </td>
                       </tr>
-                    ))
+                    );
+                    })
                   )}
                 </tbody>
               </table>

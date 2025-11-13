@@ -2,6 +2,7 @@ import {
   Barcode,
   CheckCircle2,
   Minus,
+  Percent,
   Plus,
   PlusCircle,
   Printer,
@@ -23,7 +24,8 @@ import {
 } from "@/components/ui/card";
 import { VAT_RATE } from "@/data/mockData";
 import { formatCurrency, formatQuantity } from "@/lib/format";
-import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
+import { PROMOTION_EVENT, PROMOTION_STORAGE_KEY, clearPromotion, getPromotions, updatePromotionStatus } from "@/lib/promotionStorage";
+import type { CartItem, CatalogProduct, CheckoutTotals, Promotion } from "@/types";
 
 interface MainPageProps {
   initialCartItems: CartItem[];
@@ -46,6 +48,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     availableProducts[0]?.id ?? "",
   );
   const [manualQty, setManualQty] = useState(1);
+  const [promotions, setPromotions] = useState<Promotion[]>(() => getPromotions());
   const scannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -53,6 +56,22 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
       scannerInputRef.current?.focus();
     }
   }, [scannerListening]);
+
+  useEffect(() => {
+    const syncPromotions = () => setPromotions(getPromotions());
+    syncPromotions();
+    window.addEventListener(PROMOTION_EVENT, syncPromotions);
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === PROMOTION_STORAGE_KEY) {
+        syncPromotions();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(PROMOTION_EVENT, syncPromotions);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   const totals = useMemo<CheckoutTotals>(() => {
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -208,6 +227,37 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     window.print();
   }, [appendActivity]);
 
+  const queuedPromotions = useMemo(
+    () => promotions.filter((promotion) => promotion.status === "Queued"),
+    [promotions],
+  );
+
+  const handleApplyPromotion = (promotion: Promotion) => {
+    const product = availableProducts.find((item) => item.sku === promotion.sku);
+    if (!product) {
+      clearPromotion(promotion.id);
+      setPromotions(getPromotions());
+      return;
+    }
+    const discountMultiplier = (100 - promotion.discountPercent) / 100;
+    const discountedPrice = Number((product.price * discountMultiplier).toFixed(2));
+    upsertItem(
+      {
+        ...product,
+        price: discountedPrice,
+        sellPrice: discountedPrice,
+      },
+      1,
+    );
+    updatePromotionStatus(promotion.id, "Active");
+    setPromotions(getPromotions());
+  };
+
+  const handleDismissPromotion = (promotionId: string) => {
+    clearPromotion(promotionId);
+    setPromotions(getPromotions());
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -249,6 +299,64 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     <div className="page-shell flex h-full flex-col">
       <main className="grid flex-1 gap-6 overflow-hidden px-8 py-8 lg:grid-cols-[3fr_2fr]">
         <section className="flex min-h-0 flex-col gap-6 overflow-hidden">
+          <Card>
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Percent className="h-5 w-5 text-amber-500" />
+                  Queue promotions
+                </CardTitle>
+                <CardDescription>Markdowns published from the expiring items view.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {queuedPromotions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No promotions are queued. Create one from the Expiring Items page to fast-track a discount here.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {queuedPromotions.map((promotion) => (
+                    <div
+                      key={promotion.id}
+                      className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-semibold">
+                          {promotion.productName} · {promotion.discountPercent}% off
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          SKU {promotion.sku} · Expires{" "}
+                          {promotion.expiresAt
+                            ? new Date(promotion.expiresAt).toLocaleDateString("en-GB", {
+                                month: "short",
+                                day: "numeric",
+                              })
+                            : "—"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                          onClick={() => handleApplyPromotion(promotion)}
+                        >
+                          Apply to basket
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDismissPromotion(promotion.id)}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>

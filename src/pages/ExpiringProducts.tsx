@@ -96,6 +96,8 @@ export function ExpiringProducts() {
       expiresAt: entry.expiresAt.toISOString(),
       status: "Queued",
       source: "expiring-items",
+      notes: `${entry.product.stockQty} units flagged`,
+      triggeredBy: "ExpiringProducts",
     };
     addPromotion(promotion);
     setPromotions((prev) => [promotion, ...prev]);

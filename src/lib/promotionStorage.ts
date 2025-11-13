@@ -1,6 +1,7 @@
 import type { Promotion } from "@/types";
 
 const PROMOTION_STORAGE_KEY = "souksoft-promotions";
+const PROMOTION_EVENT = "souksoft:promotions-updated";
 const MAX_PROMOTIONS = 200;
 
 function isBrowser() {
@@ -28,6 +29,7 @@ function persistPromotions(entries: Promotion[]) {
     PROMOTION_STORAGE_KEY,
     JSON.stringify(entries.slice(0, MAX_PROMOTIONS)),
   );
+  window.dispatchEvent(new CustomEvent(PROMOTION_EVENT));
 }
 
 export function addPromotion(entry: Promotion) {
@@ -36,3 +38,21 @@ export function addPromotion(entry: Promotion) {
   persistPromotions(next);
   return entry;
 }
+
+export function updatePromotionStatus(promotionId: string, status: Promotion["status"]) {
+  const promotions = getPromotions();
+  const next = promotions.map((promotion) =>
+    promotion.id === promotionId ? { ...promotion, status } : promotion,
+  );
+  persistPromotions(next);
+  return next.find((promotion) => promotion.id === promotionId);
+}
+
+export function clearPromotion(promotionId: string) {
+  const promotions = getPromotions();
+  const next = promotions.filter((promotion) => promotion.id !== promotionId);
+  persistPromotions(next);
+  return next;
+}
+
+export { PROMOTION_EVENT, PROMOTION_STORAGE_KEY };

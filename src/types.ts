@@ -146,4 +146,6 @@ export interface Promotion {
   expiresAt?: string;
   status: PromotionStatus;
   source?: string;
+  notes?: string;
+  triggeredBy?: string;
 }

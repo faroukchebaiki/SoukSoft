@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import type { PurchaseHistoryEntry } from "@/types";
+import { AUDIT_LOG_EVENT, AUDIT_STORAGE_KEY, getAuditLog } from "@/lib/auditLog";
+import type { AuditLogEntry, PurchaseHistoryEntry } from "@/types";
 
 interface EditReceiptFormState {
   cashier: string;
@@ -33,10 +34,27 @@ export function PurchaseHistory({ entries }: PurchaseHistoryProps) {
   const [historyEntries, setHistoryEntries] = useState(entries);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditReceiptFormState>(emptyEditForm);
+  const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>(() => getAuditLog());
 
   useEffect(() => {
     setHistoryEntries(entries);
   }, [entries]);
+
+  useEffect(() => {
+    const syncAudit = () => setAuditEntries(getAuditLog());
+    syncAudit();
+    window.addEventListener(AUDIT_LOG_EVENT, syncAudit);
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === AUDIT_STORAGE_KEY) {
+        syncAudit();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(AUDIT_LOG_EVENT, syncAudit);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   const selectedEntry = useMemo(
     () => historyEntries.find((entry) => entry.id === selectedEntryId) ?? null,
@@ -105,6 +123,8 @@ export function PurchaseHistory({ entries }: PurchaseHistoryProps) {
     setHistoryEntries((prev) => prev.filter((entry) => entry.id !== selectedEntry.id));
     handleCloseDetail();
   };
+
+  const latestAuditEntries = auditEntries.slice(0, 10);
 
   return (
     <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
@@ -193,6 +213,49 @@ export function PurchaseHistory({ entries }: PurchaseHistoryProps) {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Catalog audit trail</CardTitle>
+          <CardDescription>
+            Recent actions from the product builder, imports, and undo operations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {latestAuditEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No catalog updates logged yet. Manual edits and imports will appear here.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {latestAuditEntries.map((entry) => (
+                <li key={entry.id} className="rounded-2xl border bg-card/60 p-4">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="uppercase">
+                          {entry.action}
+                        </Badge>
+                        <p className="font-semibold">{entry.summary}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.actor} · {new Date(entry.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  {entry.details?.length ? (
+                    <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                      {entry.details.map((detail, index) => (
+                        <li key={`${entry.id}-${index}`}>{detail}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 

@@ -123,3 +123,27 @@ export interface PurchaseHistoryEntry {
   notes?: string;
   lineItems?: PurchaseLineItem[];
 }
+
+export type AuditAction = "create" | "update" | "delete" | "import" | "undo";
+
+export interface AuditLogEntry {
+  id: string;
+  action: AuditAction;
+  actor: string;
+  summary: string;
+  details?: string[];
+  timestamp: string;
+}
+
+export type PromotionStatus = "Queued" | "Active" | "Expired";
+
+export interface Promotion {
+  id: string;
+  sku: string;
+  productName: string;
+  discountPercent: number;
+  createdAt: string;
+  expiresAt?: string;
+  status: PromotionStatus;
+  source?: string;
+}

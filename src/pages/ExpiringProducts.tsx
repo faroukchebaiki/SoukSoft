@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CatalogProduct } from "@/types";
+import type { CatalogProduct, Promotion } from "@/types";
 import { STORAGE_KEY, getStoredProducts } from "@/lib/productStorage";
 import { formatCurrency } from "@/lib/format";
+import { addPromotion, getPromotions } from "@/lib/promotionStorage";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -17,9 +18,19 @@ interface ExpiringEntry {
   daysRemaining: number;
 }
 
+function getMarkdownPercent(daysRemaining: number) {
+  if (daysRemaining < 0) return 50;
+  if (daysRemaining <= 2) return 40;
+  if (daysRemaining <= 5) return 25;
+  if (daysRemaining <= 10) return 15;
+  return 10;
+}
+
 export function ExpiringProducts() {
   const [windowDays, setWindowDays] = useState(30);
   const [products, setProducts] = useState<CatalogProduct[]>(() => getStoredProducts());
+  const [promotions, setPromotions] = useState<Promotion[]>(() => getPromotions());
+  const [promotionNotice, setPromotionNotice] = useState<string | null>(null);
 
   const syncProducts = () => {
     setProducts(getStoredProducts());
@@ -74,6 +85,25 @@ export function ExpiringProducts() {
 
   const thresholdOptions = [7, 14, 30, 60, 90];
 
+  const handleCreatePromotion = (entry: ExpiringEntry) => {
+    const discountPercent = getMarkdownPercent(entry.daysRemaining);
+    const promotion: Promotion = {
+      id: crypto.randomUUID?.() ?? `PROMO-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      sku: entry.product.sku,
+      productName: entry.product.name,
+      discountPercent,
+      createdAt: new Date().toISOString(),
+      expiresAt: entry.expiresAt.toISOString(),
+      status: "Queued",
+      source: "expiring-items",
+    };
+    addPromotion(promotion);
+    setPromotions((prev) => [promotion, ...prev]);
+    setPromotionNotice(
+      `Promotion queued for ${entry.product.name} at ${discountPercent}% off.`,
+    );
+  };
+
   return (
     <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -99,10 +129,16 @@ export function ExpiringProducts() {
             <RefreshCcw className="h-4 w-4" />
             Sync list
           </Button>
-        </div>
       </div>
+    </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+    {promotionNotice ? (
+      <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+        {promotionNotice}
+      </div>
+    ) : null}
+
+    <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Expiring soon</CardTitle>
@@ -152,56 +188,78 @@ export function ExpiringProducts() {
                   <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium text-right">Qty</th>
                   <th className="px-4 py-2 font-medium text-right">Value</th>
+                  <th className="px-4 py-2 font-medium text-right">Markdown</th>
+                  <th className="px-4 py-2 font-medium text-right">Promotion</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-background">
-                {expiringEntries.map((entry) => (
-                  <tr key={entry.product.id}>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{entry.product.name}</span>
-                        <span className="text-xs text-muted-foreground">{entry.product.sku}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span>
-                          {entry.expiresAt.toLocaleDateString("en-GB", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {entry.daysRemaining < 0
-                            ? `${Math.abs(entry.daysRemaining)} day(s) overdue`
-                            : `${entry.daysRemaining} day(s) left`}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={entry.status === "expired" ? "destructive" : "secondary"}
-                        className={
-                          entry.status === "expired" ? "bg-red-500/15 text-red-600" : undefined
-                        }
-                      >
-                        {entry.status === "expired" ? "Expired" : "Expiring soon"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      {entry.product.stockQty} {entry.product.unit}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      {formatCurrency(
-                        (entry.product.sellPrice ?? entry.product.price) * entry.product.stockQty,
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {expiringEntries.map((entry) => {
+                  const recommendedDiscount = getMarkdownPercent(entry.daysRemaining);
+                  const hasQueuedPromotion = promotions.some(
+                    (promotion) =>
+                      promotion.sku === entry.product.sku && promotion.status === "Queued",
+                  );
+                  return (
+                    <tr key={entry.product.id}>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{entry.product.name}</span>
+                          <span className="text-xs text-muted-foreground">{entry.product.sku}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                          <span>
+                            {entry.expiresAt.toLocaleDateString("en-GB", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {entry.daysRemaining < 0
+                              ? `${Math.abs(entry.daysRemaining)} day(s) overdue`
+                              : `${entry.daysRemaining} day(s) left`}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={entry.status === "expired" ? "destructive" : "secondary"}
+                          className={
+                            entry.status === "expired" ? "bg-red-500/15 text-red-600" : undefined
+                          }
+                        >
+                          {entry.status === "expired" ? "Expired" : "Expiring soon"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">
+                        {entry.product.stockQty} {entry.product.unit}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">
+                        {formatCurrency(
+                          (entry.product.sellPrice ?? entry.product.price) * entry.product.stockQty,
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                        {recommendedDiscount}% off
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          size="sm"
+                          className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                          onClick={() => handleCreatePromotion(entry)}
+                          disabled={hasQueuedPromotion}
+                        >
+                          {hasQueuedPromotion ? "Queued" : "Create promotion"}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {expiringEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
                         <CalendarClock className="h-10 w-10 text-muted-foreground/70" />
                         <p className="text-sm">No products are near their expiration window.</p>

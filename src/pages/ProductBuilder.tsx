@@ -15,6 +15,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { CatalogProduct, UnitType } from "@/types";
+import { logAuditEvent } from "@/lib/auditLog";
 import { getStoredProducts, resetProducts, saveProducts } from "@/lib/productStorage";
 import { formatCurrency } from "@/lib/format";
 
@@ -60,6 +61,7 @@ const CSV_HEADERS = [
   "expirationDate",
 ] as const;
 const IMPORT_PREVIEW_LIMIT = 5;
+const DEFAULT_AUDIT_ACTOR = "Backoffice";
 
 type CsvField = (typeof CSV_HEADERS)[number];
 type CsvRecord = Record<CsvField, string>;
@@ -286,6 +288,49 @@ function cloneProducts(products: CatalogProduct[]): CatalogProduct[] {
   return products.map((product) => ({ ...product }));
 }
 
+function summarizeProductCreation(product: CatalogProduct) {
+  return [
+    `Initial stock ${product.stockQty} ${product.unit}`,
+    `Sell price ${formatCurrency(product.sellPrice ?? product.price)}`,
+  ];
+}
+
+function summarizeProductDiff(before: CatalogProduct, after: CatalogProduct) {
+  const changes: string[] = [];
+  if (before.name !== after.name) {
+    changes.push(`Name: ${before.name} → ${after.name}`);
+  }
+  if (before.category !== after.category) {
+    changes.push(`Category: ${before.category} → ${after.category}`);
+  }
+  const beforeSell = before.sellPrice ?? before.price;
+  const afterSell = after.sellPrice ?? after.price;
+  if (beforeSell !== afterSell) {
+    changes.push(`Sell: ${formatCurrency(beforeSell)} → ${formatCurrency(afterSell)}`);
+  }
+  if ((before.buyPrice ?? null) !== (after.buyPrice ?? null)) {
+    changes.push(
+      `Buy: ${before.buyPrice !== undefined ? formatCurrency(before.buyPrice) : "—"} → ${
+        after.buyPrice !== undefined ? formatCurrency(after.buyPrice) : "—"
+      }`,
+    );
+  }
+  if (before.stockQty !== after.stockQty) {
+    changes.push(`Stock: ${before.stockQty} → ${after.stockQty}`);
+  }
+  if ((before.minQty ?? null) !== (after.minQty ?? null)) {
+    changes.push(
+      `Min qty: ${before.minQty ?? "—"} → ${after.minQty ?? "—"}`,
+    );
+  }
+  if ((before.expirationDate ?? "") !== (after.expirationDate ?? "")) {
+    changes.push(
+      `Expiration: ${before.expirationDate ?? "—"} → ${after.expirationDate ?? "—"}`,
+    );
+  }
+  return changes.length ? changes : ["No field-level differences recorded."];
+}
+
 function readDraftForm(): ProductFormState | null {
   if (!isBrowser()) return null;
   try {
@@ -416,6 +461,9 @@ export function ProductBuilder() {
     if (!form.name || !form.sku || !form.barcode) return;
     const buyPriceValue = Number(form.buyPrice) || 0;
     const sellPriceValue = Number(form.sellPrice) || 0;
+    const existingProduct = editingId
+      ? products.find((product) => product.id === editingId)
+      : undefined;
     const nextProduct: CatalogProduct = {
       id: editingId ?? createProductId(),
       name: form.name,
@@ -439,6 +487,15 @@ export function ProductBuilder() {
         : [...prev, nextProduct];
       saveProducts(updated);
       return updated;
+    });
+
+    logAuditEvent({
+      action: existingProduct ? "update" : "create",
+      actor: DEFAULT_AUDIT_ACTOR,
+      summary: `${existingProduct ? "Updated" : "Created"} ${nextProduct.name} (${nextProduct.sku})`,
+      details: existingProduct
+        ? summarizeProductDiff(existingProduct, nextProduct)
+        : summarizeProductCreation(nextProduct),
     });
 
     setForm(emptyForm);
@@ -536,6 +593,8 @@ export function ProductBuilder() {
   };
 
   const handleDelete = (productId: string) => {
+    const targetProduct = products.find((product) => product.id === productId);
+    if (!targetProduct) return;
     setProducts((prev) => {
       const updated = prev.filter((product) => product.id !== productId);
       saveProducts(updated);
@@ -551,6 +610,16 @@ export function ProductBuilder() {
       const next = new Set(prev);
       next.delete(productId);
       return next;
+    });
+
+    logAuditEvent({
+      action: "delete",
+      actor: DEFAULT_AUDIT_ACTOR,
+      summary: `Deleted ${targetProduct.name} (${targetProduct.sku})`,
+      details: [
+        `Last sell price ${formatCurrency(targetProduct.sellPrice ?? targetProduct.price)}`,
+        `Stock on removal ${targetProduct.stockQty}`,
+      ],
     });
   };
 
@@ -659,6 +728,16 @@ export function ProductBuilder() {
     setImportFeedback(
       `Imported ${summary.inserted.length} new, updated ${summary.updated.length}, skipped ${summary.skipped}.`,
     );
+    logAuditEvent({
+      action: "import",
+      actor: DEFAULT_AUDIT_ACTOR,
+      summary: `Imported ${importPreview.fileName}`,
+      details: [
+        `${summary.inserted.length} new SKU(s)`,
+        `${summary.updated.length} updated`,
+        `${summary.skipped} skipped`,
+      ],
+    });
     setLastImportSnapshot({
       fileName: importPreview.fileName,
       appliedAt: Date.now(),
@@ -682,6 +761,15 @@ export function ProductBuilder() {
     setImportFeedback(
       `Undid import from ${new Date(lastImportSnapshot.appliedAt).toLocaleString()} (${lastImportSnapshot.summary.inserted.length} new / ${lastImportSnapshot.summary.updated.length} updated).`,
     );
+    logAuditEvent({
+      action: "undo",
+      actor: DEFAULT_AUDIT_ACTOR,
+      summary: `Undid import ${lastImportSnapshot.fileName}`,
+      details: [
+        `${lastImportSnapshot.summary.inserted.length} inserted reverted`,
+        `${lastImportSnapshot.summary.updated.length} updates reverted`,
+      ],
+    });
     setLastImportSnapshot(null);
     setSelectedIds(new Set());
   };

@@ -59,9 +59,23 @@ const CSV_HEADERS = [
   "minQty",
   "expirationDate",
 ] as const;
+const IMPORT_PREVIEW_LIMIT = 5;
 
 type CsvField = (typeof CSV_HEADERS)[number];
 type CsvRecord = Record<CsvField, string>;
+
+interface ImportSummary {
+  inserted: CatalogProduct[];
+  updated: Array<{ previous: CatalogProduct; next: CatalogProduct }>;
+  skipped: number;
+  totalRows: number;
+}
+
+interface ImportPreviewState {
+  fileName: string;
+  records: CsvRecord[];
+  summary: ImportSummary;
+}
 
 function createProductId() {
   return crypto.randomUUID?.() ?? `PROD-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -196,6 +210,71 @@ function productToCsvRecord(product: CatalogProduct): CsvRecord {
   };
 }
 
+function areProductsSame(a: CatalogProduct, b: CatalogProduct) {
+  return (
+    a.name === b.name &&
+    a.sku === b.sku &&
+    (a.barcode ?? "") === (b.barcode ?? "") &&
+    a.category === b.category &&
+    a.unit === b.unit &&
+    (a.buyPrice ?? null) === (b.buyPrice ?? null) &&
+    (a.sellPrice ?? a.price) === (b.sellPrice ?? b.price) &&
+    a.price === b.price &&
+    a.stockQty === b.stockQty &&
+    (a.minQty ?? null) === (b.minQty ?? null) &&
+    (a.expirationDate ?? "") === (b.expirationDate ?? "") &&
+    (a.imageData ?? "") === (b.imageData ?? "")
+  );
+}
+
+function applyImportRecords(records: CsvRecord[], baseProducts: CatalogProduct[]) {
+  const nextProducts = [...baseProducts];
+  const skuIndex = new Map(baseProducts.map((product, index) => [product.sku, index]));
+  const summary: ImportSummary = {
+    inserted: [],
+    updated: [],
+    skipped: 0,
+    totalRows: records.length,
+  };
+
+  for (const record of records) {
+    const sku = record.sku?.trim();
+    if (!sku) {
+      summary.skipped += 1;
+      continue;
+    }
+    const existingIndex = skuIndex.get(sku);
+    const existingProduct = existingIndex !== undefined ? nextProducts[existingIndex] : undefined;
+    const nextProduct = buildProductFromRecord(record, existingProduct);
+    if (!nextProduct) {
+      summary.skipped += 1;
+      continue;
+    }
+    if (existingIndex !== undefined) {
+      const previousProduct = nextProducts[existingIndex];
+      if (!previousProduct) {
+        summary.skipped += 1;
+        continue;
+      }
+      if (areProductsSame(previousProduct, nextProduct)) {
+        summary.skipped += 1;
+        continue;
+      }
+      nextProducts[existingIndex] = nextProduct;
+      summary.updated.push({
+        previous: previousProduct,
+        next: nextProduct,
+      });
+    } else {
+      nextProducts.push(nextProduct);
+      skuIndex.set(sku, nextProducts.length - 1);
+      summary.inserted.push(nextProduct);
+    }
+  }
+
+  return { nextProducts, summary };
+}
+
 function readDraftForm(): ProductFormState | null {
   if (!isBrowser()) return null;
   try {
@@ -227,6 +306,7 @@ export function ProductBuilder() {
   const [markupInput, setMarkupInput] = useState("5");
   const [minQtyInput, setMinQtyInput] = useState("");
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -531,44 +611,47 @@ export function ProductBuilder() {
         setImportFeedback("No rows detected in the CSV file.");
         return;
       }
-      let inserted = 0;
-      let updated = 0;
-      setProducts((prev) => {
-        const next = [...prev];
-        const skuIndex = new Map(prev.map((product, index) => [product.sku, index]));
-        for (const record of records) {
-          const sku = record.sku?.trim();
-          if (!sku) continue;
-          const existingIndex = skuIndex.get(sku);
-          const existingProduct = existingIndex !== undefined ? next[existingIndex] : undefined;
-          const nextProduct = buildProductFromRecord(record, existingProduct);
-          if (!nextProduct) continue;
-          if (existingIndex !== undefined) {
-            next[existingIndex] = nextProduct;
-            updated += 1;
-          } else {
-            next.push(nextProduct);
-            skuIndex.set(sku, next.length - 1);
-            inserted += 1;
-          }
-        }
-        if (!inserted && !updated) {
-          return prev;
-        }
-        saveProducts(next);
-        return next;
-      });
-      if (inserted || updated) {
-        setImportFeedback(`Imported ${inserted} new product(s), updated ${updated}.`);
-        setSelectedIds(new Set());
-      } else {
-        setImportFeedback("No valid rows detected in the CSV file.");
+      const { summary } = applyImportRecords(records, products);
+      if (!summary.inserted.length && !summary.updated.length) {
+        setImportFeedback("No new or updated rows detected.");
+        setImportPreview(null);
+        return;
       }
+      setImportFeedback(
+        `Reviewing ${file.name}: ${summary.inserted.length} new, ${summary.updated.length} updates, ${summary.skipped} skipped.`,
+      );
+      setImportPreview({
+        fileName: file.name,
+        records,
+        summary,
+      });
     };
     reader.onerror = () => {
       setImportFeedback("Failed to read the CSV file.");
     };
     reader.readAsText(file);
+  };
+
+  const handleConfirmImport = () => {
+    if (!importPreview) return;
+    const { nextProducts, summary } = applyImportRecords(importPreview.records, products);
+    if (!summary.inserted.length && !summary.updated.length) {
+      setImportFeedback("No changes detected in the selected file.");
+      setImportPreview(null);
+      return;
+    }
+    setProducts(nextProducts);
+    saveProducts(nextProducts);
+    setImportFeedback(
+      `Imported ${summary.inserted.length} new, updated ${summary.updated.length}, skipped ${summary.skipped}.`,
+    );
+    setImportPreview(null);
+    setSelectedIds(new Set());
+  };
+
+  const handleCancelImportPreview = () => {
+    setImportPreview(null);
+    setImportFeedback("Import preview discarded.");
   };
 
   const handleApplyMarkup = () => {
@@ -697,6 +780,91 @@ export function ProductBuilder() {
             </div>
             {importFeedback ? (
               <p className="text-xs text-muted-foreground">{importFeedback}</p>
+            ) : null}
+            {importPreview ? (
+              <div className="space-y-3 rounded-2xl border bg-card/60 p-4 text-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                      Import preview
+                    </p>
+                    <p className="text-sm font-semibold">{importPreview.fileName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {importPreview.summary.inserted.length} new ·{" "}
+                      {importPreview.summary.updated.length} updates ·{" "}
+                      {importPreview.summary.skipped} skipped
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      className="gap-2 bg-green-600 text-white hover:bg-green-500"
+                      onClick={handleConfirmImport}
+                    >
+                      Apply changes
+                    </Button>
+                    <Button type="button" variant="outline" onClick={handleCancelImportPreview}>
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border bg-background/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                      New SKUs
+                    </p>
+                    {importPreview.summary.inserted.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No new rows.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-2 text-xs">
+                        {importPreview.summary.inserted.slice(0, IMPORT_PREVIEW_LIMIT).map((product) => (
+                          <li key={product.sku} className="rounded-lg border px-3 py-2">
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-muted-foreground">SKU: {product.sku}</p>
+                          </li>
+                        ))}
+                        {importPreview.summary.inserted.length > IMPORT_PREVIEW_LIMIT ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            +{importPreview.summary.inserted.length - IMPORT_PREVIEW_LIMIT} more
+                          </p>
+                        ) : null}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="rounded-xl border bg-background/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                      Updates
+                    </p>
+                    {importPreview.summary.updated.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No changes detected.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-2 text-xs">
+                        {importPreview.summary.updated.slice(0, IMPORT_PREVIEW_LIMIT).map((entry) => {
+                          const priceBefore = entry.previous.sellPrice ?? entry.previous.price;
+                          const priceAfter = entry.next.sellPrice ?? entry.next.price;
+                          const priceChanged = priceBefore !== priceAfter;
+                          return (
+                            <li key={entry.next.id} className="rounded-lg border px-3 py-2">
+                              <p className="font-medium">{entry.next.name}</p>
+                              <p className="text-muted-foreground">SKU: {entry.next.sku}</p>
+                              {priceChanged ? (
+                                <p className="mt-1 font-mono text-[11px]">
+                                  Price {formatCurrency(priceBefore)} → {formatCurrency(priceAfter)}
+                                </p>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                        {importPreview.summary.updated.length > IMPORT_PREVIEW_LIMIT ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            +{importPreview.summary.updated.length - IMPORT_PREVIEW_LIMIT} more
+                          </p>
+                        ) : null}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : null}
             {hasSelection ? (
               <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-4 text-sm md:flex-row md:items-center md:justify-between">

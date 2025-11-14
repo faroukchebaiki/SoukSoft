@@ -1,4 +1,4 @@
-import { Store } from "lucide-react";
+import { Home, Store } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,7 @@ export default function App() {
   const [accounts, setAccounts] = useState<AccountProfile[]>(initialAccountsRef.current);
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
   const [showSectionGrid, setShowSectionGrid] = useState(true);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [activeUserId, setActiveUserId] = useState<string | null>(() =>
     resolveStoredUserId(initialAccountsRef.current ?? userProfiles),
   );
@@ -90,6 +91,7 @@ export default function App() {
     () => accounts.find((user) => user.id === activeUserId) ?? null,
     [accounts, activeUserId],
   );
+  const hasManager = accounts.some((user) => user.role === "Manager");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -135,6 +137,18 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (hasManager && authMode === "register") {
+      setAuthMode("login");
+    }
+  }, [hasManager, authMode]);
+
+  useEffect(() => {
+    if (!showSectionGrid) {
+      setIsUserMenuOpen(false);
+    }
+  }, [showSectionGrid]);
+
   const handleLogin = ({ username, password }: LoginPayload) => {
     const normalized = username.trim().toLowerCase();
     const account = accounts.find(
@@ -176,7 +190,7 @@ export default function App() {
       username: trimmedUsername,
       password,
       name: `${firstName.trim()} ${lastName.trim()}`,
-      role: "Seller",
+      role: "Manager",
       email: `${trimmedUsername}@souksoft.local`,
       avatarInitials: `${firstName.trim()[0] ?? ""}${lastName.trim()[0] ?? ""}`.toUpperCase(),
       shift: "08:00 - 16:00",
@@ -187,11 +201,18 @@ export default function App() {
     setShowSectionGrid(true);
   };
 
+  const handleLogout = () => {
+    setActiveUserId(null);
+    setAuthMode("login");
+    setAuthError(null);
+    setShowSectionGrid(true);
+  };
 
   if (!activeUser) {
     return (
       <AuthScreen
         mode={authMode}
+        canRegister={!hasManager}
         error={authError}
         onModeToggle={() => {
           setAuthMode((prev) => (prev === "login" ? "register" : "login"));
@@ -202,6 +223,12 @@ export default function App() {
       />
     );
   }
+
+  useEffect(() => {
+    if (!showSectionGrid) {
+      setIsUserMenuOpen(false);
+    }
+  }, [showSectionGrid]);
 
   const renderSection = () => {
     if (!activeUser) return null;
@@ -244,17 +271,92 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
       <div className="flex items-center justify-between px-6 py-4">
-        {!showSectionGrid ? (
+        {showSectionGrid ? (
+          <div className="relative inline-flex">
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              className="flex items-center gap-3 rounded-full border border-border/50 bg-card px-3 py-2 shadow"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Store className="h-4 w-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold">
+                  {activeUser.firstName} {activeUser.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground">{activeUser.role}</p>
+              </div>
+            </button>
+            {isUserMenuOpen ? (
+              <div className="absolute left-0 z-20 mt-3 w-72 rounded-2xl border border-border/60 bg-card p-4 shadow-2xl">
+                <div className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    disabled={!allowedSections.includes("Settings")}
+                    onClick={() => {
+                      if (allowedSections.includes("Settings")) {
+                        setActiveSection("Settings");
+                        setShowSectionGrid(false);
+                        setIsUserMenuOpen(false);
+                      }
+                    }}
+                  >
+                    Settings
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      handleLogout();
+                    }}
+                  >
+                    Log out
+                  </Button>
+                </div>
+                <div className="mt-4 border-t border-border/60 pt-3 text-xs uppercase tracking-wide text-muted-foreground">
+                  Users on this device
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {accounts.map((account) => (
+                    <li key={account.id}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm",
+                          account.id === activeUser.id
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-muted/40",
+                        )}
+                        disabled={account.id === activeUser.id}
+                        onClick={() => {
+                          setActiveUserId(account.id);
+                          setShowSectionGrid(true);
+                          setIsUserMenuOpen(false);
+                        }}
+                      >
+                        <span>
+                          {account.firstName} {account.lastName}
+                        </span>
+                        <span className="text-xs uppercase text-muted-foreground">{account.role}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : (
           <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full"
+            variant="ghost"
+            size="icon"
+            className="rounded-full border border-border/60 bg-card/80 shadow"
             onClick={() => setShowSectionGrid(true)}
           >
-            Back to sections
+            <Home className="h-4 w-4" />
           </Button>
-        ) : (
-          <span />
         )}
         <span />
       </div>
@@ -321,14 +423,16 @@ interface RegisterPayload {
 
 interface AuthScreenProps {
   mode: "login" | "register";
+  canRegister: boolean;
   error: string | null;
   onModeToggle: () => void;
   onLogin: (payload: LoginPayload) => void;
   onRegister: (payload: RegisterPayload) => void;
 }
 
-function AuthScreen({ mode, error, onModeToggle, onLogin, onRegister }: AuthScreenProps) {
-  const isLogin = mode === "login";
+function AuthScreen({ mode, canRegister, error, onModeToggle, onLogin, onRegister }: AuthScreenProps) {
+  const effectiveMode = canRegister ? mode : "login";
+  const isLogin = effectiveMode === "login";
   const [loginForm, setLoginForm] = useState<LoginPayload>({ username: "", password: "" });
   const [registerForm, setRegisterForm] = useState<RegisterPayload>({
     firstName: "",
@@ -356,7 +460,7 @@ function AuthScreen({ mode, error, onModeToggle, onLogin, onRegister }: AuthScre
           </div>
           <h1 className="text-2xl font-semibold">SoukSoft</h1>
           <p className="text-sm text-muted-foreground">
-            {isLogin ? "Sign in to your workspace" : "Create a new local account"}
+            {isLogin ? "Sign in to your workspace" : "Create a new admin account"}
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -450,16 +554,22 @@ function AuthScreen({ mode, error, onModeToggle, onLogin, onRegister }: AuthScre
             {isLogin ? "Sign in" : "Create account"}
           </Button>
         </form>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          {isLogin ? "Need an account?" : "Already registered?"}{" "}
-          <button
-            type="button"
-            className="font-semibold text-primary hover:underline"
-            onClick={onModeToggle}
-          >
-            {isLogin ? "Create one" : "Sign in"}
-          </button>
-        </div>
+        {canRegister ? (
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            {isLogin ? "Need an account?" : "Already registered?"}{" "}
+            <button
+              type="button"
+              className="font-semibold text-primary hover:underline"
+              onClick={onModeToggle}
+            >
+              {isLogin ? "Create one" : "Sign in"}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            An admin is already set up. Please sign in to continue.
+          </div>
+        )}
       </div>
     </div>
   );

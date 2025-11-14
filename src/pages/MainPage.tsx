@@ -225,164 +225,194 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handlePrintReceipt]);
 
-
   return (
     <div className="page-shell flex h-full flex-col">
-      <main className="flex flex-1 flex-col gap-6 overflow-hidden px-8 py-8">
-        <Card className="rounded-[2rem]">
-          <CardContent className="space-y-4 p-6">
-            <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Total à encaisser</p>
-            <p className="font-mono text-5xl font-semibold tracking-[0.18em] text-card-foreground sm:text-[3.5rem]">
-              {totalDisplayValue}
-            </p>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Lines</span>
-              <span>{totals.lines}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <ScanLine className="h-5 w-5 text-emerald-500" />
-                Barcode capture
-              </CardTitle>
-              <CardDescription>
-                Scanning a code instantly adds the item to the active basket.
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form className="flex flex-col gap-3 lg:flex-row" onSubmit={handleScanSubmit}>
-              <label className="flex flex-1 flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Barcode
-                <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
-                  <Barcode className="h-4 w-4 text-muted-foreground" />
-                  <input
-                    ref={scannerInputRef}
-                    className="w-full bg-transparent text-base outline-none"
-                    placeholder="Scan or type barcode"
-                    value={scannerInput}
-                    onChange={(event) => setScannerInput(event.target.value)}
-                    disabled={!scannerListening}
-                  />
-                </div>
-              </label>
-              <label className="flex w-full max-w-[140px] flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Qty
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={scannerQty}
-                  onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
-                  className="rounded-md border bg-background px-3 py-2 text-base"
-                />
-              </label>
-              <div className="flex items-end gap-2">
-                <Button type="submit" className="w-full lg:w-auto" disabled={!scannerListening}>
-                  Add via scan
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setScannerListening((prev) => !prev)}>
-                  {scannerListening ? "Pause" : "Resume"}
-                </Button>
+      <main className="grid flex-1 gap-6 overflow-hidden px-8 py-8 lg:grid-cols-[1.4fr_1fr]">
+        <section className="flex min-h-0 flex-col gap-6 overflow-hidden">
+          <Card>
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ScanLine className="h-5 w-5 text-emerald-500" />
+                  Barcode capture
+                </CardTitle>
+                <CardDescription>
+                  Scanning a code instantly adds the item to the basket.
+                </CardDescription>
               </div>
-            </form>
-            {activityLog.length > 0 ? (
-              <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                {activityLog.map((entry) => (
-                  <p key={entry.id} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {entry.message}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card className="flex min-h-0 flex-1 flex-col">
-          <CardHeader className="flex items-center justify-between gap-2">
-            <div className="text-sm text-muted-foreground">
-              {totals.lines} item{totals.lines === 1 ? "" : "s"} in basket
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setManualMode((prev) => !prev)}>
-              {manualMode ? "Hide manual add" : "Add item"}
-            </Button>
-          </CardHeader>
-          {manualMode ? (
-            <CardContent className="border-t bg-muted/30">
-              <form onSubmit={handleManualAdd} className="flex flex-col gap-3 lg:flex-row">
-                <label className="flex flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Product
-                  <select
-                    value={manualProductId}
-                    onChange={(event) => setManualProductId(event.target.value)}
-                    className="rounded-md border bg-background px-3 py-2 text-sm"
-                  >
-                    {availableProducts.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} · {formatCurrency(product.price)}
-                      </option>
-                    ))}
-                  </select>
+            </CardHeader>
+            <CardContent>
+              <form className="flex flex-col gap-3 lg:flex-row" onSubmit={handleScanSubmit}>
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Barcode
+                  <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+                    <Barcode className="h-4 w-4 text-muted-foreground" />
+                    <input
+                      ref={scannerInputRef}
+                      className="w-full bg-transparent text-base outline-none"
+                      placeholder="Scan or type barcode"
+                      value={scannerInput}
+                      onChange={(event) => setScannerInput(event.target.value)}
+                      disabled={!scannerListening}
+                    />
+                  </div>
                 </label>
-                <label className="flex w-full max-w-[120px] flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <label className="flex w-full max-w-[140px] flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Qty
                   <input
                     type="number"
                     min={1}
-                    value={manualQty}
-                    onChange={(event) =>
-                      setManualQty(Math.max(1, Number(event.target.value) || 1))
-                    }
-                    className="rounded-md border bg-background px-3 py-2 text-sm"
+                    step={1}
+                    value={scannerQty}
+                    onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
+                    className="rounded-md border bg-background px-3 py-2 text-base"
                   />
                 </label>
-                <Button type="submit" className="w-full lg:w-auto">
-                  Add to basket
-                </Button>
+                <div className="flex items-end gap-2">
+                  <Button type="submit" className="w-full lg:w-auto" disabled={!scannerListening}>
+                    Add via scan
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setScannerListening((prev) => !prev)}>
+                    {scannerListening ? "Pause" : "Resume"}
+                  </Button>
+                </div>
               </form>
+              {activityLog.length > 0 ? (
+                <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  {activityLog.map((entry) => (
+                    <p key={entry.id} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {entry.message}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
             </CardContent>
-          ) : null}
-          <CardContent className="flex-1 overflow-hidden rounded-md border p-0">
-            <div className="h-full overflow-y-auto">
-              <table className="min-w-full divide-y divide-border text-sm">
-                <thead className="sticky top-0 z-10 bg-muted/70 text-left text-xs uppercase text-muted-foreground backdrop-blur">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Item</th>
-                    <th className="px-4 py-2 font-medium text-right">Qty</th>
-                    <th className="px-4 py-2 font-medium text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-background">
-                  {basketItems.length === 0 ? (
+          </Card>
+
+          <Card className="flex min-h-0 flex-1 flex-col">
+            <CardHeader>
+              <CardTitle>All items</CardTitle>
+              <CardDescription>Quick reference catalog</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden rounded-md border p-0">
+              <div className="h-full overflow-y-auto">
+                <table className="min-w-full divide-y divide-border text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/70 text-left text-xs uppercase text-muted-foreground backdrop-blur">
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
-                        Scan or add an item to start the basket.
-                      </td>
+                      <th className="px-4 py-2 font-medium">Product</th>
+                      <th className="px-4 py-2 font-medium text-right">Price</th>
                     </tr>
-                  ) : (
-                    basketItems.map((item) => {
-                      const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
-                      return (
-                        <tr key={item.id}>
-                          <td className="px-4 py-3 font-medium">{item.name}</td>
-                          <td className="px-4 py-3 text-right">{formatQuantity(item.qty, item.unit)}</td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {formatCurrency(lineTotal)}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-background">
+                    {availableProducts.map((product) => (
+                      <tr key={product.id}>
+                        <td className="px-4 py-2">{product.name}</td>
+                        <td className="px-4 py-2 text-right">{formatCurrency(product.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <aside className="flex min-h-0 flex-col gap-6 overflow-hidden">
+          <Card className="rounded-[2rem]">
+            <CardContent className="space-y-4 p-6">
+              <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Total à encaisser</p>
+              <p className="font-mono text-5xl font-semibold tracking-[0.18em] text-card-foreground sm:text-[3.5rem]">
+                {totalDisplayValue}
+              </p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Lines</span>
+                <span>{totals.lines}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="flex min-h-0 flex-1 flex-col">
+            <CardHeader className="flex items-center justify-between gap-2">
+              <div className="text-sm text-muted-foreground">
+                {totals.lines} item{totals.lines === 1 ? "" : "s"} in basket
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setManualMode((prev) => !prev)}>
+                {manualMode ? "Hide manual add" : "Add item"}
+              </Button>
+            </CardHeader>
+            {manualMode ? (
+              <CardContent className="border-t bg-muted/30">
+                <form onSubmit={handleManualAdd} className="flex flex-col gap-3 lg:flex-row">
+                  <label className="flex flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Product
+                    <select
+                      value={manualProductId}
+                      onChange={(event) => setManualProductId(event.target.value)}
+                      className="rounded-md border bg-background px-3 py-2 text-sm"
+                    >
+                      {availableProducts.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} · {formatCurrency(product.price)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex w-full max-w-[120px] flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Qty
+                    <input
+                      type="number"
+                      min={1}
+                      value={manualQty}
+                      onChange={(event) =>
+                        setManualQty(Math.max(1, Number(event.target.value) || 1))
+                      }
+                      className="rounded-md border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <Button type="submit" className="w-full lg:w-auto">
+                    Add to basket
+                  </Button>
+                </form>
+              </CardContent>
+            ) : null}
+            <CardContent className="flex-1 overflow-hidden rounded-md border p-0">
+              <div className="h-full overflow-y-auto">
+                <table className="min-w-full divide-y divide-border text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/70 text-left text-xs uppercase text-muted-foreground backdrop-blur">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Item</th>
+                      <th className="px-4 py-2 font-medium text-right">Qty</th>
+                      <th className="px-4 py-2 font-medium text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-background">
+                    {basketItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                          Scan or add an item to start the basket.
+                        </td>
+                      </tr>
+                    ) : (
+                      basketItems.map((item) => {
+                        const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
+                        return (
+                          <tr key={item.id}>
+                            <td className="px-4 py-3 font-medium">{item.name}</td>
+                            <td className="px-4 py-3 text-right">{formatQuantity(item.qty, item.unit)}</td>
+                            <td className="px-4 py-3 text-right font-semibold">
+                              {formatCurrency(lineTotal)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
       </main>
       <footer className="border-t bg-card/80 px-6 py-4 shadow-[0_-8px_20px_rgba(0,0,0,0.12)] backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex flex-wrap items-center justify-between gap-3">

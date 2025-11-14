@@ -1,4 +1,4 @@
-import { Store } from "lucide-react";
+import { Home, Store } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,6 @@ function readStoredAccounts(): AccountProfile[] {
 
 export default function App() {
   const initialAccountsRef = useRef<AccountProfile[] | null>(null);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
   if (initialAccountsRef.current === null) {
     initialAccountsRef.current = readStoredAccounts();
   }
@@ -85,9 +84,7 @@ export default function App() {
   const [activeUserId, setActiveUserId] = useState<string | null>(() =>
     resolveStoredUserId(initialAccountsRef.current ?? userProfiles),
   );
-  const [defaultSectionPrefs, setDefaultSectionPrefs] = useState<DefaultSectionPrefs>(() =>
-    readDefaultSectionPrefs(),
-  );
+  const [defaultSectionPrefs] = useState<DefaultSectionPrefs>(() => readDefaultSectionPrefs());
 
   const activeUser = useMemo(
     () => accounts.find((user) => user.id === activeUserId) ?? null,
@@ -120,14 +117,6 @@ export default function App() {
   }, [activeUserId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      USER_DEFAULT_SECTION_PREFS_KEY,
-      JSON.stringify(defaultSectionPrefs),
-    );
-  }, [defaultSectionPrefs]);
-
-  useEffect(() => {
     if (!activeUser) return;
     const allowed = rolePermissions[activeUser.role];
     const storedDefault = defaultSectionPrefs[activeUser.id];
@@ -143,17 +132,8 @@ export default function App() {
   }, [activeUser, activeSection, defaultSectionPrefs]);
 
   const allowedSections = activeUser ? rolePermissions[activeUser.role] : [];
-  const userDefaultSection = activeUser ? defaultSectionPrefs[activeUser.id] : undefined;
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string | null>(null);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  const handleLogout = () => {
-    setActiveUserId(null);
-    setAuthMode("login");
-    setAuthError(null);
-    setShowSectionGrid(true);
-  };
 
   const handleLogin = ({ username, password }: LoginPayload) => {
     const normalized = username.trim().toLowerCase();
@@ -207,15 +187,6 @@ export default function App() {
     setShowSectionGrid(true);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   if (!activeUser) {
     return (
@@ -268,133 +239,21 @@ export default function App() {
     }
   };
 
-  const handleUserChange = (userId: string) => {
-    setActiveUserId(userId);
-  };
-
-  const handleSaveDefaultSection = () => {
-    if (!activeUser) return;
-    setDefaultSectionPrefs((prev) => ({
-      ...prev,
-      [activeUser.id]: activeSection,
-    }));
-  };
-
 const sectionCards = navigation.filter(({ label }) => allowedSections.includes(label));
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
-      <header className="flex items-center justify-between border-b border-border/40 px-8 py-4">
-        <div className="flex items-center gap-4" ref={userMenuRef}>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary shadow-inner">
-            <Store className="h-5 w-5" />
-          </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsUserMenuOpen((prev) => !prev)}
-              className="text-left"
-            >
-              <p className="text-lg font-semibold leading-tight tracking-tight">SoukSoft</p>
-              <p className="text-sm text-muted-foreground">
-                {activeUser.firstName} {activeUser.lastName}
-              </p>
-            </button>
-            {isUserMenuOpen ? (
-              <div className="absolute left-0 z-20 mt-4 w-72 rounded-2xl border border-border/50 bg-card p-4 shadow-2xl">
-                <div className="space-y-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    disabled={!allowedSections.includes("Settings")}
-                    onClick={() => {
-                      if (allowedSections.includes("Settings")) {
-                        setActiveSection("Settings");
-                        setIsUserMenuOpen(false);
-                      }
-                    }}
-                  >
-                    Settings
-                  </Button>
-                  <Button variant="destructive" className="w-full justify-start" onClick={handleLogout}>
-                    Log out
-                  </Button>
-                </div>
-                <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Default view
-                    </p>
-                    <span className="text-xs font-semibold text-primary">
-                      {userDefaultSection ?? allowedSections[0] ?? "—"}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs"
-                    onClick={() => {
-                      handleSaveDefaultSection();
-                      setIsUserMenuOpen(false);
-                    }}
-                    disabled={userDefaultSection === activeSection}
-                  >
-                    Set current as default
-                  </Button>
-                </div>
-                <div className="mt-4 border-t border-border/60 pt-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Users on this device
-                  </p>
-                  <ul className="mt-2 space-y-1">
-                    {accounts.map((account) => (
-                      <li key={account.id}>
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm",
-                            account.id === activeUser.id
-                              ? "bg-primary/10 text-primary"
-                              : "text-foreground hover:bg-muted/50",
-                          )}
-                          disabled={account.id === activeUser.id}
-                          onClick={() => {
-                            handleUserChange(account.id);
-                            setIsUserMenuOpen(false);
-                          }}
-                        >
-                          <span>
-                            {account.firstName} {account.lastName}
-                          </span>
-                          <span className="text-xs uppercase text-muted-foreground">
-                            {account.role}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {!showSectionGrid ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              onClick={() => setShowSectionGrid(true)}
-            >
-              All sections
-            </Button>
-          ) : null}
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Active section</p>
-            <p className="text-base font-semibold">{activeSection}</p>
-          </div>
-        </div>
-      </header>
+      <div className="px-6 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={() => setShowSectionGrid(true)}
+        >
+          <Home className="mr-2 h-4 w-4" />
+          Home
+        </Button>
+      </div>
 
       <main className="flex flex-1 flex-col overflow-hidden px-8 py-6">
         {showSectionGrid ? (

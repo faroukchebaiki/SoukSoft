@@ -81,6 +81,7 @@ export default function App() {
 
   const [accounts, setAccounts] = useState<AccountProfile[]>(initialAccountsRef.current);
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
+  const [showSectionGrid, setShowSectionGrid] = useState(true);
   const [activeUserId, setActiveUserId] = useState<string | null>(() =>
     resolveStoredUserId(initialAccountsRef.current ?? userProfiles),
   );
@@ -151,6 +152,7 @@ export default function App() {
     setActiveUserId(null);
     setAuthMode("login");
     setAuthError(null);
+    setShowSectionGrid(true);
   };
 
   const handleLogin = ({ username, password }: LoginPayload) => {
@@ -164,6 +166,7 @@ export default function App() {
     }
     setActiveUserId(account.id);
     setAuthError(null);
+    setShowSectionGrid(true);
   };
 
   const handleRegister = ({
@@ -201,6 +204,7 @@ export default function App() {
     setAccounts((prev) => [...prev, newAccount]);
     setActiveUserId(newAccount.id);
     setAuthError(null);
+    setShowSectionGrid(true);
   };
 
   useEffect(() => {
@@ -374,36 +378,46 @@ const sectionCards = navigation.filter(({ label }) => allowedSections.includes(l
             ) : null}
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Active section</p>
-          <p className="text-base font-semibold">{activeSection}</p>
+        <div className="flex items-center gap-3">
+          {!showSectionGrid ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => setShowSectionGrid(true)}
+            >
+              All sections
+            </Button>
+          ) : null}
+          <div className="text-right">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Active section</p>
+            <p className="text-base font-semibold">{activeSection}</p>
+          </div>
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col gap-6 overflow-hidden px-8 py-6">
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Accessible areas</h2>
+      <main className="flex flex-1 flex-col overflow-hidden px-8 py-6">
+        {showSectionGrid ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-8">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold">Choose where to go</h2>
               <p className="text-sm text-muted-foreground">
-                Choose a workspace card to open the corresponding view.
+                You have access to {allowedSections.length} section
+                {allowedSections.length === 1 ? "" : "s"}.
               </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {allowedSections.length} section{allowedSections.length === 1 ? "" : "s"} available
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {sectionCards.map(({ label, icon: Icon }) => {
-              const isActive = label === activeSection;
-              return (
+            <div className="grid w-full max-w-4xl gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {sectionCards.map(({ label, icon: Icon }) => (
                 <button
                   key={label}
                   type="button"
-                  onClick={() => setActiveSection(label)}
+                  onClick={() => {
+                    setActiveSection(label);
+                    setShowSectionGrid(false);
+                  }}
                   className={cn(
-                    "flex items-center gap-3 rounded-2xl border px-4 py-4 text-left shadow-sm transition hover:border-primary/60 hover:shadow-md",
-                    isActive ? "border-primary/70 bg-primary/10" : "border-border/60 bg-card/50",
+                    "flex items-center gap-3 rounded-3xl border border-border/60 bg-card/70 px-5 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md",
+                    label === activeSection ? "border-primary/70 bg-primary/10" : "",
                   )}
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -412,17 +426,18 @@ const sectionCards = navigation.filter(({ label }) => allowedSections.includes(l
                   <div>
                     <p className="text-base font-semibold">{label}</p>
                     <p className="text-xs text-muted-foreground">
-                      {isActive ? "Currently open" : "Open section"}
+                      {label === activeSection ? "Current view" : "Open view"}
                     </p>
                   </div>
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </section>
-        <div className="flex-1 overflow-hidden rounded-[2rem] border border-border/50 bg-background shadow-inner">
-          <div className="h-full overflow-auto rounded-[2rem]">{renderSection()}</div>
-        </div>
+        ) : (
+          <div className="flex-1 overflow-hidden rounded-[2rem] border border-border/50 bg-background shadow-inner">
+            <div className="h-full overflow-auto rounded-[2rem]">{renderSection()}</div>
+          </div>
+        )}
       </main>
     </div>
   );

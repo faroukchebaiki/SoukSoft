@@ -27,6 +27,7 @@ import { Settings } from "@/pages/Settings";
 import { ExpiringProducts } from "@/pages/ExpiringProducts";
 
 const USER_STORAGE_KEY = "souksoft-active-user";
+const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-prefs";
 
 const rolePermissions: Record<UserRole, Section[]> = {
   Manager: ["Main page", "All items", "History", "Settings", "Expiring items", "Product builder"],
@@ -40,10 +41,27 @@ function resolveStoredUserId() {
   return stored && userProfiles.some((user) => user.id === stored) ? stored : DEFAULT_USER_ID;
 }
 
+type DefaultSectionPrefs = Partial<Record<string, Section>>;
+
+function readDefaultSectionPrefs(): DefaultSectionPrefs {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(USER_DEFAULT_SECTION_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as DefaultSectionPrefs;
+    return parsed ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [activeUserId, setActiveUserId] = useState<string>(() => resolveStoredUserId());
+  const [defaultSectionPrefs, setDefaultSectionPrefs] = useState<DefaultSectionPrefs>(() =>
+    readDefaultSectionPrefs(),
+  );
 
   const activeUser = useMemo(
     () => userProfiles.find((user) => user.id === activeUserId) ?? userProfiles[0],
@@ -56,13 +74,29 @@ export default function App() {
   }, [activeUser.id]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      USER_DEFAULT_SECTION_PREFS_KEY,
+      JSON.stringify(defaultSectionPrefs),
+    );
+  }, [defaultSectionPrefs]);
+
+  useEffect(() => {
     const allowed = rolePermissions[activeUser.role];
-    if (!allowed.includes(activeSection)) {
-      setActiveSection(allowed[0] ?? DEFAULT_SECTION);
+    const storedDefault = defaultSectionPrefs[activeUser.id];
+    const targetSection =
+      storedDefault && allowed.includes(storedDefault)
+        ? storedDefault
+        : allowed.includes(activeSection)
+          ? activeSection
+          : allowed[0] ?? DEFAULT_SECTION;
+    if (targetSection !== activeSection) {
+      setActiveSection(targetSection);
     }
-  }, [activeSection, activeUser.role]);
+  }, [activeUser.id, activeUser.role, activeSection, defaultSectionPrefs]);
 
   const allowedSections = rolePermissions[activeUser.role];
+  const userDefaultSection = defaultSectionPrefs[activeUser.id];
 
   const renderSection = () => {
     if (!allowedSections.includes(activeSection)) {
@@ -101,6 +135,13 @@ export default function App() {
 
   const handleUserChange = (userId: string) => {
     setActiveUserId(userId);
+  };
+
+  const handleSaveDefaultSection = () => {
+    setDefaultSectionPrefs((prev) => ({
+      ...prev,
+      [activeUser.id]: activeSection,
+    }));
   };
 
   return (
@@ -176,11 +217,20 @@ export default function App() {
                       isActive ? "opacity-100" : undefined,
                     )}
                   />
-                  <Icon className="h-4 w-4" />
-                  {!navCollapsed && <span className="truncate">{label}</span>}
-                </Button>
-              );
-            })}
+                <Icon className="h-4 w-4" />
+                {!navCollapsed && (
+                  <span className="flex-1 truncate">
+                    {label}
+                    {userDefaultSection === label ? (
+                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[0.6rem] uppercase text-primary">
+                        Default
+                      </span>
+                    ) : null}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
         </nav>
         <div className="px-4 pb-5">
           <div
@@ -224,6 +274,23 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Default view
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {userDefaultSection ?? allowedSections[0] ?? "—"}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={handleSaveDefaultSection}
+                    disabled={userDefaultSection === activeSection}
+                  >
+                    Set current as default
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button

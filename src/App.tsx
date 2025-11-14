@@ -74,6 +74,7 @@ function readStoredAccounts(): AccountProfile[] {
 
 export default function App() {
   const initialAccountsRef = useRef<AccountProfile[] | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
   if (initialAccountsRef.current === null) {
     initialAccountsRef.current = readStoredAccounts();
   }
@@ -148,6 +149,17 @@ export default function App() {
       setIsUserMenuOpen(false);
     }
   }, [showSectionGrid]);
+
+  useEffect(() => {
+    if (!isUserMenuOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isUserMenuOpen]);
 
   const handleLogin = ({ username, password }: LoginPayload) => {
     const normalized = username.trim().toLowerCase();
@@ -272,7 +284,7 @@ export default function App() {
     <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
       {showSectionGrid ? (
         <header className="px-6 py-4">
-          <div className="relative inline-flex">
+          <div className="relative inline-flex" ref={userMenuRef}>
             <button
               type="button"
               onClick={() => setIsUserMenuOpen((prev) => !prev)}
@@ -289,7 +301,7 @@ export default function App() {
               </div>
             </button>
             {isUserMenuOpen ? (
-              <div className="absolute left-0 z-20 mt-3 w-72 rounded-2xl border border-border/60 bg-card p-4 shadow-2xl">
+              <div className="absolute left-0 z-20 mt-3 w-72 rounded-2xl border border-border/60 bg-card/95 p-4 shadow-2xl backdrop-blur-md">
                 <div className="space-y-2">
                   <Button
                     variant="ghost"

@@ -1,4 +1,4 @@
-import { Home, Store } from "lucide-react";
+import { ChevronDown, Home, Store } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -299,9 +299,15 @@ export default function App() {
                 </p>
                 <p className="text-xs text-muted-foreground">{activeUser.role}</p>
               </div>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-muted-foreground transition-transform",
+                  isUserMenuOpen ? "rotate-180" : "",
+                )}
+              />
             </button>
             {isUserMenuOpen ? (
-              <div className="absolute left-0 z-20 mt-3 w-72 rounded-2xl border border-border/60 bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+              <div className="absolute left-0 top-full z-20 mt-3 w-72 rounded-2xl border border-border/60 bg-card/95 p-4 shadow-2xl backdrop-blur-md">
                 <div className="space-y-2">
                   <Button
                     variant="ghost"
@@ -337,10 +343,10 @@ export default function App() {
                       <button
                         type="button"
                         className={cn(
-                          "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm",
+                          "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition",
                           account.id === activeUser.id
                             ? "bg-primary/10 text-primary"
-                            : "text-foreground hover:bg-muted/40",
+                            : "text-foreground hover:bg-primary/10 hover:text-primary",
                         )}
                         disabled={account.id === activeUser.id}
                         onClick={() => {

@@ -361,12 +361,7 @@ export default function App() {
         <span />
       </div>
 
-      <main
-        className={cn(
-          "flex flex-1 flex-col overflow-hidden px-8 py-6",
-          showSectionGrid ? "" : "pt-16",
-        )}
-      >
+      <main className={cn("flex flex-1 flex-col", showSectionGrid ? "px-8 py-6" : "p-0")}>
         {showSectionGrid ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-8">
             <div className="text-center">
@@ -405,7 +400,7 @@ export default function App() {
           </div>
         ) : (
           <div className="flex-1 overflow-hidden rounded-[2rem] border border-border/50 bg-background shadow-inner">
-            <div className="h-full overflow-auto rounded-[2rem]">{renderSection()}</div>
+            <div className="h-full overflow-hidden rounded-[2rem]">{renderSection()}</div>
           </div>
         )}
       </main>

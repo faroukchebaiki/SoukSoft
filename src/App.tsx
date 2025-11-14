@@ -270,8 +270,8 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
-      <div className="flex items-center justify-between px-6 py-4">
-        {showSectionGrid ? (
+      {showSectionGrid ? (
+        <header className="px-6 py-4">
           <div className="relative inline-flex">
             <button
               type="button"
@@ -348,18 +348,18 @@ export default function App() {
               </div>
             ) : null}
           </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed left-4 top-4 z-20 rounded-full border border-border/60 bg-card/80 shadow"
-            onClick={() => setShowSectionGrid(true)}
-          >
-            <Home className="h-4 w-4" />
-          </Button>
-        )}
-        <span />
-      </div>
+        </header>
+      ) : null}
+      {!showSectionGrid ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed left-4 top-4 z-30 rounded-full border border-border/60 bg-card/80 shadow"
+          onClick={() => setShowSectionGrid(true)}
+        >
+          <Home className="h-4 w-4" />
+        </Button>
+      ) : null}
 
       <main className={cn("flex flex-1 flex-col", showSectionGrid ? "px-8 py-6" : "p-0")}>
         {showSectionGrid ? (

@@ -82,6 +82,10 @@ export type UserRole = "Manager" | "Seller" | "Inventory";
 
 export interface AccountProfile {
   id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  password: string;
   name: string;
   role: UserRole;
   email: string;

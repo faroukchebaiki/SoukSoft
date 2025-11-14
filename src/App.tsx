@@ -1,10 +1,5 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-  Star,
-  Store,
-} from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Store } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +13,7 @@ import {
   DEFAULT_USER_ID,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import type { Section, UserRole } from "@/types";
+import type { AccountProfile, Section, UserRole } from "@/types";
 import { AllItems } from "@/pages/AllItems";
 import { MainPage } from "@/pages/MainPage";
 import { ProductBuilder } from "@/pages/ProductBuilder";
@@ -27,6 +22,7 @@ import { Settings } from "@/pages/Settings";
 import { ExpiringProducts } from "@/pages/ExpiringProducts";
 
 const USER_STORAGE_KEY = "souksoft-active-user";
+const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
 const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-prefs";
 
 const rolePermissions: Record<UserRole, Section[]> = {
@@ -35,10 +31,12 @@ const rolePermissions: Record<UserRole, Section[]> = {
   Inventory: ["All items", "Expiring items", "Product builder"],
 };
 
-function resolveStoredUserId() {
+function resolveStoredUserId(accounts: AccountProfile[]) {
   if (typeof window === "undefined") return DEFAULT_USER_ID;
   const stored = window.localStorage.getItem(USER_STORAGE_KEY);
-  return stored && userProfiles.some((user) => user.id === stored) ? stored : DEFAULT_USER_ID;
+  return stored && accounts.some((user) => user.id === stored)
+    ? stored
+    : accounts[0]?.id ?? DEFAULT_USER_ID;
 }
 
 type DefaultSectionPrefs = Partial<Record<string, Section>>;
@@ -55,23 +53,70 @@ function readDefaultSectionPrefs(): DefaultSectionPrefs {
   }
 }
 
+function readStoredAccounts(): AccountProfile[] {
+  if (typeof window === "undefined") return userProfiles;
+  try {
+    const raw = window.localStorage.getItem(ACCOUNTS_STORAGE_KEY);
+    if (!raw) {
+      window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(userProfiles));
+      return userProfiles;
+    }
+    const parsed = JSON.parse(raw) as AccountProfile[];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(userProfiles));
+      return userProfiles;
+    }
+    return parsed;
+  } catch {
+    return userProfiles;
+  }
+}
+
 export default function App() {
+  const initialAccountsRef = useRef<AccountProfile[] | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  if (initialAccountsRef.current === null) {
+    initialAccountsRef.current = readStoredAccounts();
+  }
+
+  const [accounts, setAccounts] = useState<AccountProfile[]>(initialAccountsRef.current);
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
-  const [navCollapsed, setNavCollapsed] = useState(false);
-  const [activeUserId, setActiveUserId] = useState<string>(() => resolveStoredUserId());
+  const [activeUserId, setActiveUserId] = useState<string | null>(() =>
+    resolveStoredUserId(initialAccountsRef.current ?? userProfiles),
+  );
   const [defaultSectionPrefs, setDefaultSectionPrefs] = useState<DefaultSectionPrefs>(() =>
     readDefaultSectionPrefs(),
   );
 
   const activeUser = useMemo(
-    () => userProfiles.find((user) => user.id === activeUserId) ?? userProfiles[0],
-    [activeUserId],
+    () => accounts.find((user) => user.id === activeUserId) ?? null,
+    [accounts, activeUserId],
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(USER_STORAGE_KEY, activeUser.id);
-  }, [activeUser.id]);
+    window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+  }, [accounts]);
+
+  useEffect(() => {
+    if (!accounts.length) {
+      setActiveUserId(null);
+      return;
+    }
+    if (activeUserId && accounts.some((account) => account.id === activeUserId)) {
+      return;
+    }
+    setActiveUserId(accounts[0].id);
+  }, [accounts, activeUserId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (activeUserId) {
+      window.localStorage.setItem(USER_STORAGE_KEY, activeUserId);
+    } else {
+      window.localStorage.removeItem(USER_STORAGE_KEY);
+    }
+  }, [activeUserId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -82,6 +127,7 @@ export default function App() {
   }, [defaultSectionPrefs]);
 
   useEffect(() => {
+    if (!activeUser) return;
     const allowed = rolePermissions[activeUser.role];
     const storedDefault = defaultSectionPrefs[activeUser.id];
     const targetSection =
@@ -93,12 +139,97 @@ export default function App() {
     if (targetSection !== activeSection) {
       setActiveSection(targetSection);
     }
-  }, [activeUser.id, activeUser.role, activeSection, defaultSectionPrefs]);
+  }, [activeUser, activeSection, defaultSectionPrefs]);
 
-  const allowedSections = rolePermissions[activeUser.role];
-  const userDefaultSection = defaultSectionPrefs[activeUser.id];
+  const allowedSections = activeUser ? rolePermissions[activeUser.role] : [];
+  const userDefaultSection = activeUser ? defaultSectionPrefs[activeUser.id] : undefined;
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    setActiveUserId(null);
+    setAuthMode("login");
+    setAuthError(null);
+  };
+
+  const handleLogin = ({ username, password }: LoginPayload) => {
+    const normalized = username.trim().toLowerCase();
+    const account = accounts.find(
+      (user) => user.username.toLowerCase() === normalized && user.password === password,
+    );
+    if (!account) {
+      setAuthError("Invalid username or password.");
+      return;
+    }
+    setActiveUserId(account.id);
+    setAuthError(null);
+  };
+
+  const handleRegister = ({
+    firstName,
+    lastName,
+    username,
+    password,
+    confirmPassword,
+  }: RegisterPayload) => {
+    if (password !== confirmPassword) {
+      setAuthError("Passwords do not match.");
+      return;
+    }
+    const trimmedUsername = username.trim().toLowerCase();
+    if (!trimmedUsername || !firstName.trim() || !lastName.trim()) {
+      setAuthError("Please complete all required fields.");
+      return;
+    }
+    if (accounts.some((user) => user.username.toLowerCase() === trimmedUsername)) {
+      setAuthError("Username already exists.");
+      return;
+    }
+    const newAccount: AccountProfile = {
+      id: crypto.randomUUID?.() ?? `USR-${Date.now()}`,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      username: trimmedUsername,
+      password,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      role: "Seller",
+      email: `${trimmedUsername}@souksoft.local`,
+      avatarInitials: `${firstName.trim()[0] ?? ""}${lastName.trim()[0] ?? ""}`.toUpperCase(),
+      shift: "08:00 - 16:00",
+    };
+    setAccounts((prev) => [...prev, newAccount]);
+    setActiveUserId(newAccount.id);
+    setAuthError(null);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  if (!activeUser) {
+    return (
+      <AuthScreen
+        mode={authMode}
+        error={authError}
+        onModeToggle={() => {
+          setAuthMode((prev) => (prev === "login" ? "register" : "login"));
+          setAuthError(null);
+        }}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+      />
+    );
+  }
 
   const renderSection = () => {
+    if (!activeUser) return null;
     if (!allowedSections.includes(activeSection)) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -138,178 +269,319 @@ export default function App() {
   };
 
   const handleSaveDefaultSection = () => {
+    if (!activeUser) return;
     setDefaultSectionPrefs((prev) => ({
       ...prev,
       [activeUser.id]: activeSection,
     }));
   };
 
+const sectionCards = navigation.filter(({ label }) => allowedSections.includes(label));
+
   return (
-    <div className="flex h-screen min-w-[1100px] overflow-hidden bg-background text-foreground">
-      <aside
-        className={cn(
-          "sidebar-shell sticky top-0 flex h-screen shrink-0 flex-col transition-[width] duration-300",
-          navCollapsed ? "w-24" : "w-72",
-        )}
-      >
-        <div className="flex h-20 items-center gap-3 border-b border-border/60 px-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-lg">
+    <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
+      <header className="flex items-center justify-between border-b border-border/40 px-8 py-4">
+        <div className="flex items-center gap-4" ref={userMenuRef}>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary shadow-inner">
             <Store className="h-5 w-5" />
           </div>
-          {!navCollapsed && (
-            <div>
-              <p className="text-sm uppercase tracking-[0.4em] text-muted-foreground">
-                SoukSoft
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              className="text-left"
+            >
+              <p className="text-lg font-semibold leading-tight tracking-tight">SoukSoft</p>
+              <p className="text-sm text-muted-foreground">
+                {activeUser.firstName} {activeUser.lastName}
               </p>
-              <h1 className="text-lg font-semibold text-foreground">Front counter OS</h1>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-auto h-9 w-9 shrink-0 text-muted-foreground hover:bg-muted/40"
-            aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
-            onClick={() => setNavCollapsed((prev) => !prev)}
-          >
-            {navCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {!navCollapsed && (
-          <div className="mx-4 mt-5 glass-panel p-4 text-[0.7rem] uppercase tracking-wider text-muted-foreground">
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <Star className="h-4 w-4 text-amber-300" />
-              Elite register stack
-            </div>
-            <p className="mt-2 text-sm normal-case text-foreground/80">
-              Seamless baskets, live stock, and loyalty intelligence in one surface.
-            </p>
-          </div>
-        )}
-
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
-          {navigation
-            .filter(({ label }) => rolePermissions[activeUser.role].includes(label))
-            .map(({ label, icon: Icon }) => {
-              const isActive = activeSection === label;
-              return (
-                <Button
-                  key={label}
-                  variant="ghost"
-                  title={label}
-                  className={cn(
-                    "group relative w-full rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/40",
-                    navCollapsed ? "justify-center" : "justify-start gap-3",
-                    isActive
-                      ? "border-primary/70 bg-primary/10 text-primary hover:bg-primary/15"
-                      : "hover:border-muted hover:bg-muted/40 hover:text-foreground",
-                  )}
-                  onClick={() => setActiveSection(label)}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <span
-                    className={cn(
-                      "absolute inset-y-3 left-2 w-[3px] rounded-full bg-primary opacity-0 transition-opacity duration-200 group-hover:opacity-50",
-                      isActive ? "opacity-100" : undefined,
-                    )}
-                  />
-                <Icon className="h-4 w-4" />
-                {!navCollapsed && (
-                  <span className="flex-1 truncate">
-                    {label}
-                    {userDefaultSection === label ? (
-                      <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[0.6rem] uppercase text-primary">
-                        Default
-                      </span>
-                    ) : null}
-                  </span>
-                )}
-              </Button>
-            );
-          })}
-        </nav>
-        <div className="px-4 pb-5">
-          <div
-            className={cn(
-              "glass-panel p-4 text-sm text-muted-foreground transition-all",
-              navCollapsed ? "items-center justify-center p-2 text-center" : "space-y-3",
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-base font-semibold text-primary">
-                {activeUser.avatarInitials}
-              </div>
-              {!navCollapsed && (
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {activeUser.name}
-                  </p>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {activeUser.role} · {activeUser.shift}
-                  </p>
-                </div>
-              )}
-            </div>
-            {!navCollapsed && (
-              <>
-                <p className="text-xs leading-tight text-muted-foreground">
-                  {activeUser.email}
-                </p>
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Switch account
-                  </p>
-                  <select
-                    value={activeUser.id}
-                    onChange={(event) => handleUserChange(event.target.value)}
-                    className="w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-sm"
+            </button>
+            {isUserMenuOpen ? (
+              <div className="absolute left-0 z-20 mt-4 w-72 rounded-2xl border border-border/50 bg-card p-4 shadow-2xl">
+                <div className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    disabled={!allowedSections.includes("Settings")}
+                    onClick={() => {
+                      if (allowedSections.includes("Settings")) {
+                        setActiveSection("Settings");
+                        setIsUserMenuOpen(false);
+                      }
+                    }}
                   >
-                    {userProfiles.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} · {user.role}
-                      </option>
-                    ))}
-                  </select>
+                    Settings
+                  </Button>
+                  <Button variant="destructive" className="w-full justify-start" onClick={handleLogout}>
+                    Log out
+                  </Button>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Default view
-                  </p>
-                  <p className="text-sm text-foreground">
-                    {userDefaultSection ?? allowedSections[0] ?? "—"}
-                  </p>
+                <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Default view
+                    </p>
+                    <span className="text-xs font-semibold text-primary">
+                      {userDefaultSection ?? allowedSections[0] ?? "—"}
+                    </span>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full text-xs"
-                    onClick={handleSaveDefaultSection}
+                    onClick={() => {
+                      handleSaveDefaultSection();
+                      setIsUserMenuOpen(false);
+                    }}
                     disabled={userDefaultSection === activeSection}
                   >
                     Set current as default
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1 border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                    onClick={() => setActiveSection("Settings")}
-                  >
-                    Account center
-                  </Button>
+                <div className="mt-4 border-t border-border/60 pt-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Users on this device
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {accounts.map((account) => (
+                      <li key={account.id}>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm",
+                            account.id === activeUser.id
+                              ? "bg-primary/10 text-primary"
+                              : "text-foreground hover:bg-muted/50",
+                          )}
+                          disabled={account.id === activeUser.id}
+                          onClick={() => {
+                            handleUserChange(account.id);
+                            setIsUserMenuOpen(false);
+                          }}
+                        >
+                          <span>
+                            {account.firstName} {account.lastName}
+                          </span>
+                          <span className="text-xs uppercase text-muted-foreground">
+                            {account.role}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </>
-            )}
+              </div>
+            ) : null}
           </div>
         </div>
-      </aside>
+        <div className="text-right">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Active section</p>
+          <p className="text-base font-semibold">{activeSection}</p>
+        </div>
+      </header>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-hidden">{renderSection()}</div>
+      <main className="flex flex-1 flex-col gap-6 overflow-hidden px-8 py-6">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Accessible areas</h2>
+              <p className="text-sm text-muted-foreground">
+                Choose a workspace card to open the corresponding view.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {allowedSections.length} section{allowedSections.length === 1 ? "" : "s"} available
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {sectionCards.map(({ label, icon: Icon }) => {
+              const isActive = label === activeSection;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setActiveSection(label)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border px-4 py-4 text-left shadow-sm transition hover:border-primary/60 hover:shadow-md",
+                    isActive ? "border-primary/70 bg-primary/10" : "border-border/60 bg-card/50",
+                  )}
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold">{label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isActive ? "Currently open" : "Open section"}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+        <div className="flex-1 overflow-hidden rounded-[2rem] border border-border/50 bg-background shadow-inner">
+          <div className="h-full overflow-auto rounded-[2rem]">{renderSection()}</div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+interface LoginPayload {
+  username: string;
+  password: string;
+}
+
+interface RegisterPayload {
+  firstName: string;
+  lastName: string;
+  username: string;
+  password: string;
+  confirmPassword: string;
+}
+
+interface AuthScreenProps {
+  mode: "login" | "register";
+  error: string | null;
+  onModeToggle: () => void;
+  onLogin: (payload: LoginPayload) => void;
+  onRegister: (payload: RegisterPayload) => void;
+}
+
+function AuthScreen({ mode, error, onModeToggle, onLogin, onRegister }: AuthScreenProps) {
+  const isLogin = mode === "login";
+  const [loginForm, setLoginForm] = useState<LoginPayload>({ username: "", password: "" });
+  const [registerForm, setRegisterForm] = useState<RegisterPayload>({
+    firstName: "",
+    lastName: "",
+    username: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isLogin) {
+      onLogin(loginForm);
+    } else {
+      onRegister(registerForm);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+      <div className="w-full max-w-md rounded-3xl border border-border/50 bg-card p-8 shadow-2xl">
+        <div className="mb-6 space-y-2 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Store className="h-6 w-6" />
+          </div>
+          <h1 className="text-2xl font-semibold">SoukSoft</h1>
+          <p className="text-sm text-muted-foreground">
+            {isLogin ? "Sign in to your workspace" : "Create a new local account"}
+          </p>
+        </div>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {isLogin ? (
+            <>
+              <label className="block text-sm font-medium">
+                Username
+                <input
+                  className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                  value={loginForm.username}
+                  onChange={(event) =>
+                    setLoginForm((prev) => ({ ...prev, username: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Password
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                  value={loginForm.password}
+                  onChange={(event) =>
+                    setLoginForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block text-sm font-medium">
+                  First name
+                  <input
+                    className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                    value={registerForm.firstName}
+                    onChange={(event) =>
+                      setRegisterForm((prev) => ({ ...prev, firstName: event.target.value }))
+                    }
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Last name
+                  <input
+                    className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                    value={registerForm.lastName}
+                    onChange={(event) =>
+                      setRegisterForm((prev) => ({ ...prev, lastName: event.target.value }))
+                    }
+                  />
+                </label>
+              </div>
+              <label className="block text-sm font-medium">
+                Username
+                <input
+                  className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                  value={registerForm.username}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, username: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Password
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                  value={registerForm.password}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Confirm password
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm"
+                  value={registerForm.confirmPassword}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({
+                      ...prev,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </>
+          )}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <Button type="submit" className="w-full rounded-2xl py-2">
+            {isLogin ? "Sign in" : "Create account"}
+          </Button>
+        </form>
+        <div className="mt-6 text-center text-sm text-muted-foreground">
+          {isLogin ? "Need an account?" : "Already registered?"}{" "}
+          <button
+            type="button"
+            className="font-semibold text-primary hover:underline"
+            onClick={onModeToggle}
+          >
+            {isLogin ? "Create one" : "Sign in"}
+          </button>
+        </div>
       </div>
     </div>
   );

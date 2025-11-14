@@ -450,6 +450,10 @@ export const DEFAULT_SECTION: Section = "Main page";
 export const userProfiles: AccountProfile[] = [
   {
     id: "USR-001",
+    firstName: "Lina",
+    lastName: "Bensaoud",
+    username: "lina",
+    password: "password123",
     name: "Lina Bensaoud",
     role: "Manager",
     email: "lina@souksoft.dz",
@@ -458,6 +462,10 @@ export const userProfiles: AccountProfile[] = [
   },
   {
     id: "USR-002",
+    firstName: "Karim",
+    lastName: "Sellami",
+    username: "karim",
+    password: "password123",
     name: "Karim Sellami",
     role: "Seller",
     email: "karim@souksoft.dz",
@@ -466,6 +474,10 @@ export const userProfiles: AccountProfile[] = [
   },
   {
     id: "USR-003",
+    firstName: "Nadia",
+    lastName: "Haddad",
+    username: "nadia",
+    password: "password123",
     name: "Nadia Haddad",
     role: "Inventory",
     email: "nadia@souksoft.dz",

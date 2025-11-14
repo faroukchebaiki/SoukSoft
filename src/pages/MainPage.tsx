@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -226,23 +225,18 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
   }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handlePrintReceipt]);
 
   return (
-    <div className="page-shell flex h-full flex-col">
-      <main className="grid flex-1 gap-6 overflow-hidden px-8 py-8 lg:grid-cols-[1.4fr_1fr]">
+    <div className="page-shell flex min-h-screen max-h-screen overflow-hidden flex-col">
+      <main className="grid flex-1 min-h-0 gap-6 overflow-hidden px-8 pb-24 pt-8 lg:grid-cols-[1.4fr_1fr]">
         <section className="flex min-h-0 flex-col gap-6 overflow-hidden">
-          <Card>
-            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <ScanLine className="h-5 w-5 text-emerald-500" />
-                  Barcode capture
-                </CardTitle>
-                <CardDescription>
-                  Scanning a code instantly adds the item to the basket.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <form className="flex flex-col gap-3 lg:flex-row" onSubmit={handleScanSubmit}>
+        <Card>
+          <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ScanLine className="h-5 w-5 text-emerald-500" />
+              Barcode capture
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4">
+            <form className="flex flex-col gap-3 lg:flex-row" onSubmit={handleScanSubmit}>
                 <label className="flex flex-1 flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Barcode
                   <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
@@ -291,11 +285,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           </Card>
 
           <Card className="flex min-h-0 flex-1 flex-col">
-            <CardHeader>
-              <CardTitle>All items</CardTitle>
-              <CardDescription>Quick reference catalog</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-hidden rounded-md border p-0">
+            <CardContent className="flex-1 overflow-hidden rounded-md border px-3 py-2">
               <div className="h-full overflow-y-auto">
                 <table className="min-w-full divide-y divide-border text-sm">
                   <thead className="sticky top-0 z-10 bg-muted/70 text-left text-xs uppercase text-muted-foreground backdrop-blur">
@@ -333,13 +323,11 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           </Card>
 
           <Card className="flex min-h-0 flex-1 flex-col">
-            <CardHeader className="flex items-center justify-between gap-2">
-              <div className="text-sm text-muted-foreground">
-                {totals.lines} item{totals.lines === 1 ? "" : "s"} in basket
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setManualMode((prev) => !prev)}>
-                {manualMode ? "Hide manual add" : "Add item"}
-              </Button>
+            <CardHeader className="flex items-center justify-between border-b px-4 py-2">
+              <CardTitle className="text-base">Basket</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {totals.lines} item{totals.lines === 1 ? "" : "s"}
+              </p>
             </CardHeader>
             {manualMode ? (
               <CardContent className="border-t bg-muted/30">
@@ -411,10 +399,15 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
                 </table>
               </div>
             </CardContent>
+            <CardContent className="border-t px-4 py-3">
+              <Button variant="outline" size="sm" onClick={() => setManualMode((prev) => !prev)}>
+                {manualMode ? "Hide manual add" : "Add item"}
+              </Button>
+            </CardContent>
           </Card>
         </aside>
       </main>
-      <footer className="border-t bg-card/80 px-6 py-4 shadow-[0_-8px_20px_rgba(0,0,0,0.12)] backdrop-blur supports-[backdrop-filter]:bg-card/60">
+      <footer className="fixed bottom-0 left-0 right-0 border-t bg-card/80 px-6 py-4 shadow-[0_-8px_20px_rgba(0,0,0,0.12)] backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">
             Register 2 · Shift 08:00-16:00

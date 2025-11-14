@@ -352,7 +352,7 @@ export default function App() {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full border border-border/60 bg-card/80 shadow"
+            className="fixed left-4 top-4 z-20 rounded-full border border-border/60 bg-card/80 shadow"
             onClick={() => setShowSectionGrid(true)}
           >
             <Home className="h-4 w-4" />
@@ -361,7 +361,12 @@ export default function App() {
         <span />
       </div>
 
-      <main className="flex flex-1 flex-col overflow-hidden px-8 py-6">
+      <main
+        className={cn(
+          "flex flex-1 flex-col overflow-hidden px-8 py-6",
+          showSectionGrid ? "" : "pt-16",
+        )}
+      >
         {showSectionGrid ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-8">
             <div className="text-center">

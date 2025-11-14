@@ -78,10 +78,12 @@ export interface SettingOption {
   actionLabel: string;
 }
 
+export type UserRole = "Manager" | "Seller" | "Inventory";
+
 export interface AccountProfile {
   id: string;
   name: string;
-  role: string;
+  role: UserRole;
   email: string;
   avatarInitials: string;
   shift: string;

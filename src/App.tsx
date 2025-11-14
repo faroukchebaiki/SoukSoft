@@ -4,7 +4,7 @@ import {
   Star,
   Store,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,10 +14,11 @@ import {
   catalogProducts,
   purchaseHistory,
   settingsOptions,
-  activeUser,
+  userProfiles,
+  DEFAULT_USER_ID,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import type { Section } from "@/types";
+import type { Section, UserRole } from "@/types";
 import { AllItems } from "@/pages/AllItems";
 import { MainPage } from "@/pages/MainPage";
 import { ProductBuilder } from "@/pages/ProductBuilder";
@@ -25,11 +26,56 @@ import { PurchaseHistory } from "@/pages/PurchaseHistory";
 import { Settings } from "@/pages/Settings";
 import { ExpiringProducts } from "@/pages/ExpiringProducts";
 
+const USER_STORAGE_KEY = "souksoft-active-user";
+
+const rolePermissions: Record<UserRole, Section[]> = {
+  Manager: ["Main page", "All items", "History", "Settings", "Expiring items", "Product builder"],
+  Seller: ["Main page", "History"],
+  Inventory: ["All items", "Expiring items", "Product builder"],
+};
+
+function resolveStoredUserId() {
+  if (typeof window === "undefined") return DEFAULT_USER_ID;
+  const stored = window.localStorage.getItem(USER_STORAGE_KEY);
+  return stored && userProfiles.some((user) => user.id === stored) ? stored : DEFAULT_USER_ID;
+}
+
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [activeUserId, setActiveUserId] = useState<string>(() => resolveStoredUserId());
+
+  const activeUser = useMemo(
+    () => userProfiles.find((user) => user.id === activeUserId) ?? userProfiles[0],
+    [activeUserId],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(USER_STORAGE_KEY, activeUser.id);
+  }, [activeUser.id]);
+
+  useEffect(() => {
+    const allowed = rolePermissions[activeUser.role];
+    if (!allowed.includes(activeSection)) {
+      setActiveSection(allowed[0] ?? DEFAULT_SECTION);
+    }
+  }, [activeSection, activeUser.role]);
+
+  const allowedSections = rolePermissions[activeUser.role];
 
   const renderSection = () => {
+    if (!allowedSections.includes(activeSection)) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+          <h2 className="text-2xl font-semibold">Access restricted</h2>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            This section requires elevated permissions. Switch to a manager account to continue.
+          </p>
+        </div>
+      );
+    }
+
     switch (activeSection) {
       case "Main page":
         return (
@@ -51,6 +97,10 @@ export default function App() {
       default:
         return null;
     }
+  };
+
+  const handleUserChange = (userId: string) => {
+    setActiveUserId(userId);
   };
 
   return (
@@ -101,34 +151,36 @@ export default function App() {
         )}
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
-          {navigation.map(({ label, icon: Icon }) => {
-            const isActive = activeSection === label;
-            return (
-              <Button
-                key={label}
-                variant="ghost"
-                title={label}
-                className={cn(
-                  "group relative w-full rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/40",
-                  navCollapsed ? "justify-center" : "justify-start gap-3",
-                  isActive
-                    ? "border-primary/70 bg-primary/10 text-primary hover:bg-primary/15"
-                    : "hover:border-muted hover:bg-muted/40 hover:text-foreground",
-                )}
-                onClick={() => setActiveSection(label)}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <span
+          {navigation
+            .filter(({ label }) => rolePermissions[activeUser.role].includes(label))
+            .map(({ label, icon: Icon }) => {
+              const isActive = activeSection === label;
+              return (
+                <Button
+                  key={label}
+                  variant="ghost"
+                  title={label}
                   className={cn(
-                    "absolute inset-y-3 left-2 w-[3px] rounded-full bg-primary opacity-0 transition-opacity duration-200 group-hover:opacity-50",
-                    isActive ? "opacity-100" : undefined,
+                    "group relative w-full rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/40",
+                    navCollapsed ? "justify-center" : "justify-start gap-3",
+                    isActive
+                      ? "border-primary/70 bg-primary/10 text-primary hover:bg-primary/15"
+                      : "hover:border-muted hover:bg-muted/40 hover:text-foreground",
                   )}
-                />
-                <Icon className="h-4 w-4" />
-                {!navCollapsed && <span className="truncate">{label}</span>}
-              </Button>
-            );
-          })}
+                  onClick={() => setActiveSection(label)}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <span
+                    className={cn(
+                      "absolute inset-y-3 left-2 w-[3px] rounded-full bg-primary opacity-0 transition-opacity duration-200 group-hover:opacity-50",
+                      isActive ? "opacity-100" : undefined,
+                    )}
+                  />
+                  <Icon className="h-4 w-4" />
+                  {!navCollapsed && <span className="truncate">{label}</span>}
+                </Button>
+              );
+            })}
         </nav>
         <div className="px-4 pb-5">
           <div
@@ -157,6 +209,22 @@ export default function App() {
                 <p className="text-xs leading-tight text-muted-foreground">
                   {activeUser.email}
                 </p>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Switch account
+                  </p>
+                  <select
+                    value={activeUser.id}
+                    onChange={(event) => handleUserChange(event.target.value)}
+                    className="w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-sm"
+                  >
+                    {userProfiles.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} · {user.role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
@@ -165,13 +233,6 @@ export default function App() {
                     onClick={() => setActiveSection("Settings")}
                   >
                     Account center
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                  >
-                    Sign out
                   </Button>
                 </div>
               </>

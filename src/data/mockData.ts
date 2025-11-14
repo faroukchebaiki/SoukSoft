@@ -447,11 +447,31 @@ export const settingsOptions: SettingOption[] = [
 
 export const DEFAULT_SECTION: Section = "Main page";
 
-export const activeUser: AccountProfile = {
-  id: "USR-204",
-  name: "Farouk Messaoudi",
-  role: "Register lead",
-  email: "farouk@souksoft.dz",
-  avatarInitials: "FM",
-  shift: "08:00 - 16:00",
-};
+export const userProfiles: AccountProfile[] = [
+  {
+    id: "USR-001",
+    name: "Lina Bensaoud",
+    role: "Manager",
+    email: "lina@souksoft.dz",
+    avatarInitials: "LB",
+    shift: "08:00 - 16:00",
+  },
+  {
+    id: "USR-002",
+    name: "Karim Sellami",
+    role: "Seller",
+    email: "karim@souksoft.dz",
+    avatarInitials: "KS",
+    shift: "09:00 - 17:00",
+  },
+  {
+    id: "USR-003",
+    name: "Nadia Haddad",
+    role: "Inventory",
+    email: "nadia@souksoft.dz",
+    avatarInitials: "NH",
+    shift: "06:00 - 14:00",
+  },
+] satisfies AccountProfile[];
+
+export const DEFAULT_USER_ID = userProfiles[0].id;

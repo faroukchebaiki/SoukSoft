@@ -24,7 +24,7 @@ import type {
 export const VAT_RATE = 0.19;
 
 export const navigation: readonly NavigationItem[] = [
-  { label: "Main page", icon: SquareTerminal },
+  { label: "Counter", icon: SquareTerminal },
   { label: "All items", icon: Package },
   { label: "History", icon: History },
   { label: "Settings", icon: Settings },
@@ -445,7 +445,7 @@ export const settingsOptions: SettingOption[] = [
   },
 ];
 
-export const DEFAULT_SECTION: Section = "Main page";
+export const DEFAULT_SECTION: Section = "Counter";
 
 export const userProfiles: AccountProfile[] = [
   {

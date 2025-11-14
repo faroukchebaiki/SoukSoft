@@ -26,8 +26,8 @@ const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
 const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-prefs";
 
 const rolePermissions: Record<UserRole, Section[]> = {
-  Manager: ["Main page", "All items", "History", "Settings", "Expiring items", "Product builder"],
-  Seller: ["Main page", "History"],
+  Manager: ["Counter", "All items", "History", "Settings", "Expiring items", "Product builder"],
+  Seller: ["Counter", "History"],
   Inventory: ["All items", "Expiring items", "Product builder"],
 };
 
@@ -256,7 +256,7 @@ export default function App() {
     }
 
     switch (activeSection) {
-      case "Main page":
+      case "Counter":
         return (
           <MainPage
             initialCartItems={cartItems}

@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 export type UnitType = "kg" | "pcs";
 
 export type Section =
-  | "Main page"
+  | "Counter"
   | "All items"
   | "History"
   | "Settings"

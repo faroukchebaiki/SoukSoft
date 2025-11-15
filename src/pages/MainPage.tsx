@@ -1,19 +1,25 @@
 import {
   Barcode,
+  Bell,
+  Calculator,
   CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  FolderCog,
+  HandCoins,
+  PackagePlus,
+  Plus,
   Printer,
   RotateCcw,
   ScanLine,
+  ShoppingBag,
+  Star,
+  Tag,
+  Trash2,
 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { VAT_RATE } from "@/data/mockData";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
@@ -28,16 +34,58 @@ interface ActivityLogEntry {
   message: string;
 }
 
+const toolbarActions = [
+  { label: "Produits", shortcut: "F1", icon: ShoppingBag },
+  { label: "Facture Achat", shortcut: "F2", icon: PackagePlus },
+  { label: "Réglage", shortcut: "F3", icon: FolderCog },
+  { label: "Charges", shortcut: "F7", icon: CreditCard },
+  { label: "Clôture", shortcut: "F9", icon: ClipboardList },
+];
+
+const topTabs = [
+  { label: "Les chambres" },
+  { label: "Favoris", icon: Star },
+  { label: "Stock" },
+  { label: "Factures des ventes" },
+  { label: "Tous les produits vendus" },
+];
+
+const favoriteButtons = [
+  { label: "مشروبات", color: "bg-amber-500 text-white" },
+  { label: "FAV2", color: "bg-emerald-600 text-white" },
+  { label: "FAV3", color: "bg-sky-600 text-white" },
+  { label: "FAV4", color: "bg-rose-900 text-white" },
+  { label: "FAV5", color: "bg-red-500 text-white" },
+  { label: "FAV6", color: "bg-gray-500 text-white" },
+  { label: "FAV7", color: "bg-lime-600 text-white" },
+  { label: "FAV8", color: "bg-cyan-700 text-white" },
+  { label: "FAV9", color: "bg-purple-800 text-white" },
+  { label: "FAV10", color: "bg-orange-600 text-white" },
+  { label: "FAV11", color: "bg-indigo-900 text-white" },
+  { label: "FAV12", color: "bg-slate-200 text-slate-600" },
+  { label: "FAV13", color: "bg-slate-200 text-slate-600" },
+  { label: "FAV14", color: "bg-slate-200 text-slate-600" },
+  { label: "FAV15", color: "bg-slate-200 text-slate-600" },
+];
+
+const keypadRows = [
+  ["7", "8", "9"],
+  ["4", "5", "6"],
+  ["1", "2", "3"],
+  ["0", "00", "C"],
+];
+
 export function MainPage({ initialCartItems, availableProducts }: MainPageProps) {
   const [basketItems, setBasketItems] = useState<CartItem[]>(() => initialCartItems);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [scannerQty, setScannerQty] = useState(1);
+  const [productSearch, setProductSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeTab, setActiveTab] = useState(topTabs[0].label);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [manualMode, setManualMode] = useState(false);
-  const [manualProductId, setManualProductId] = useState(
-    availableProducts[0]?.id ?? "",
-  );
+  const [manualProductId, setManualProductId] = useState(availableProducts[0]?.id ?? "");
   const [manualQty, setManualQty] = useState(1);
   const scannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,7 +96,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
   }, [scannerListening]);
 
   useEffect(() => {
-    if (availableProducts.length === 0) {
+    if (!availableProducts.length) {
       setManualProductId("");
       return;
     }
@@ -60,13 +108,26 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     });
   }, [availableProducts]);
 
+  const categories = useMemo(() => {
+    const unique = Array.from(new Set(availableProducts.map((product) => product.category)));
+    return ["all", ...unique];
+  }, [availableProducts]);
+
+  const filteredProducts = useMemo(() => {
+    const normalized = productSearch.trim().toLowerCase();
+    return availableProducts.filter((product) => {
+      const matchesCategory = activeCategory === "all" || product.category === activeCategory;
+      const matchesQuery =
+        normalized.length === 0 ||
+        product.name.toLowerCase().includes(normalized) ||
+        product.sku.toLowerCase().includes(normalized);
+      return matchesCategory && matchesQuery;
+    });
+  }, [availableProducts, productSearch, activeCategory]);
 
   const totals = useMemo<CheckoutTotals>(() => {
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const discounts = basketItems.reduce(
-      (sum, item) => sum + (item.discountValue ?? 0),
-      0,
-    );
+    const discounts = basketItems.reduce((sum, item) => sum + (item.discountValue ?? 0), 0);
     const taxable = subtotal - discounts;
     const vat = taxable * VAT_RATE;
     const total = taxable + vat;
@@ -101,7 +162,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
       id: crypto.randomUUID?.() ?? `log-${Date.now()}-${Math.random()}`,
       message: line,
     };
-    setActivityLog((log) => [entry, ...log].slice(0, 4));
+    setActivityLog((log) => [entry, ...log].slice(0, 6));
   }, []);
 
   const upsertItem = useCallback(
@@ -129,7 +190,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           },
         ];
       });
-      appendActivity(`Added ${product.name} ×${quantity}`);
+      appendActivity(`Ajouté ${product.name} ×${quantity}`);
     },
     [appendActivity],
   );
@@ -146,7 +207,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
         (item) => item.barcode === scannerInput.trim(),
       );
       if (!product) {
-        appendActivity(`Unknown barcode ${scannerInput.trim()}`);
+        appendActivity(`Code inconnu ${scannerInput.trim()}`);
         return;
       }
       upsertItem(product, scannerQty);
@@ -165,6 +226,13 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     ],
   );
 
+  const handleProductCardClick = useCallback(
+    (product: CatalogProduct) => {
+      upsertItem(product, 1);
+    },
+    [upsertItem],
+  );
+
   const handleManualAdd = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -181,13 +249,13 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
 
   const handleCancelBasket = useCallback(() => {
     setBasketItems(initialCartItems);
-    appendActivity("Basket restored to saved state");
+    appendActivity("Panier restauré");
     focusScannerInput();
   }, [appendActivity, focusScannerInput, initialCartItems]);
 
   const handleFinishBasket = useCallback(() => {
     appendActivity(
-      `Basket validated at ${new Intl.DateTimeFormat("en-DZ", {
+      `Panier validé à ${new Intl.DateTimeFormat("fr-DZ", {
         hour: "2-digit",
         minute: "2-digit",
       }).format(new Date())}`,
@@ -197,8 +265,17 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
   }, [appendActivity, focusScannerInput]);
 
   const handlePrintReceipt = useCallback(() => {
-    appendActivity("Receipt printed");
+    appendActivity("Reçu imprimé");
     window.print();
+  }, [appendActivity]);
+
+  const handleDeleteLastItem = useCallback(() => {
+    setBasketItems((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      appendActivity("Dernière ligne supprimée");
+      return next;
+    });
   }, [appendActivity]);
 
   useEffect(() => {
@@ -219,7 +296,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           break;
         case "f4":
           event.preventDefault();
-          handlePrintReceipt();
+          appendActivity("Module prix rapide ouvert");
           break;
         case "f5":
           event.preventDefault();
@@ -235,173 +312,241 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handlePrintReceipt]);
+  }, [appendActivity, focusScannerInput, handleCancelBasket, handleFinishBasket]);
 
   return (
-    <div className="page-shell flex min-h-screen max-h-screen overflow-hidden flex-col">
-      <main className="grid flex-1 min-h-0 gap-6 overflow-hidden px-8 pb-24 pt-8 lg:grid-cols-[1.4fr_1fr]">
-        <section className="flex min-h-0 flex-col gap-6 overflow-hidden">
-        <Card>
-          <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ScanLine className="h-5 w-5 text-emerald-500" />
-              Barcode capture
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <form className="flex flex-col gap-3 lg:flex-row" onSubmit={handleScanSubmit}>
-                <label className="flex flex-1 flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Barcode
-                  <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
-                    <Barcode className="h-4 w-4 text-muted-foreground" />
-                    <input
-                      ref={scannerInputRef}
-                      className="w-full bg-transparent text-base outline-none"
-                      placeholder="Scan or type barcode"
-                      value={scannerInput}
-                      onChange={(event) => setScannerInput(event.target.value)}
-                      disabled={!scannerListening}
-                    />
-                  </div>
-                </label>
-                <label className="flex w-full max-w-[140px] flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Qty
+    <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3 md:p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex-shrink-0 rounded-2xl border border-strong bg-panel p-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {toolbarActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.label}
+                    type="button"
+                    className="flex items-center gap-2 rounded-xl border border-strong bg-panel-soft px-3 py-2 text-foreground shadow-sm transition hover:border-strong hover:text-emerald-600"
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{action.label}</span>
+                    <span className="text-[10px] font-bold text-emerald-500">{action.shortcut}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-3 py-2 text-xs shadow-inner">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
+                Le fond de la caisse
+              </span>
+              <form
+                className="ml-auto flex flex-1 flex-wrap items-center gap-2 text-muted-foreground"
+                onSubmit={handleScanSubmit}
+              >
+                <div className="flex flex-1 items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-1 text-sm">
+                  <Barcode className="h-4 w-4" />
                   <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={scannerQty}
-                    onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
-                    className="rounded-md border bg-background px-3 py-2 text-base"
+                    ref={scannerInputRef}
+                    className="w-full bg-transparent text-sm outline-none"
+                    placeholder="Scanner le code barre"
+                    value={scannerInput}
+                    onChange={(event) => setScannerInput(event.target.value)}
+                    disabled={!scannerListening}
                   />
-                </label>
-                <div className="flex items-end gap-2">
-                  <Button type="submit" className="w-full lg:w-auto" disabled={!scannerListening}>
-                    Add via scan
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setScannerListening((prev) => !prev)}>
-                    {scannerListening ? "Pause" : "Resume"}
-                  </Button>
                 </div>
+                <input
+                  type="number"
+                  min={1}
+                  value={scannerQty}
+                  onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
+                  className="w-16 rounded-2xl border border-strong bg-background px-2 py-1 text-center text-xs"
+                />
+                <Button size="sm" type="submit" disabled={!scannerListening}>
+                  Ajouter
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setScannerListening((prev) => !prev)}
+                >
+                  {scannerListening ? "Pause" : "Reprendre"}
+                </Button>
               </form>
-              {activityLog.length > 0 ? (
-                <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  {activityLog.map((entry) => (
-                    <p key={entry.id} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {entry.message}
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-2 py-1 text-[11px] shadow-inner">
+              {topTabs.map((tab) => {
+                const Icon = tab.icon ?? Bell;
+                const isActive = activeTab === tab.label;
+                return (
+                  <button
+                    key={tab.label}
+                    type="button"
+                    onClick={() => setActiveTab(tab.label)}
+                    className={`flex items-center gap-2 rounded-2xl px-3 py-1 ${
+                      isActive ? "bg-background text-foreground shadow" : "text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+              <div className="ml-auto flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-1 text-muted-foreground">
+                <ScanLine className="h-4 w-4" />
+                <input
+                  className="bg-transparent text-sm outline-none"
+                  placeholder="Rechercher un produit"
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
 
-          <Card className="flex min-h-0 flex-1 flex-col">
-            <CardContent className="flex-1 overflow-hidden rounded-md border px-3 py-2">
-              <div className="h-full overflow-y-auto">
-                <table className="min-w-full divide-y divide-border text-sm">
-                  <thead className="sticky top-0 z-10 bg-muted/70 text-left text-xs uppercase text-muted-foreground backdrop-blur">
+          <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+            <aside className="flex w-48 flex-col rounded-2xl border border-strong bg-panel p-3 text-xs shadow-inner">
+              <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
+                Favoris
+              </p>
+              <div className="flex-1 space-y-2 overflow-auto">
+                {favoriteButtons.map((fav, index) => (
+                  <button
+                    key={fav.label}
+                    type="button"
+                    className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-wide ${fav.color} shadow-sm`}
+                    onClick={() => setActiveCategory(categories[index] ?? "all")}
+                  >
+                    <span>{fav.label}</span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+
+            <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner min-h-0">
+              <div className="grid h-full grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-strong hover:shadow-lg"
+                    onClick={() => handleProductCardClick(product)}
+                  >
+                    <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
+                      Illustration
+                    </div>
+                    <div className="mt-3 space-y-1 text-muted-foreground">
+                      <p className="text-sm font-semibold text-foreground">{product.name}</p>
+                      <p className="text-xs">{product.sku}</p>
+                      <p className="text-[13px] font-semibold text-emerald-600">
+                        {formatCurrency(product.price)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+                {filteredProducts.length === 0 ? (
+                  <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
+                    Aucun produit trouvé.
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <aside className="flex w-full max-w-lg gap-3 overflow-hidden">
+          <div className="flex w-24 flex-col gap-2 rounded-2xl border border-strong bg-panel-soft p-2 text-[11px] shadow-inner">
+            <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400"
+              onClick={handleCancelBasket}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Annuler
+              <span className="text-[10px]">F10</span>
+            </Button>
+            <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-amber-500 text-xs text-white hover:bg-amber-400"
+              onClick={handleDeleteLastItem}
+            >
+              <Trash2 className="h-4 w-4" />
+              Suppr
+              <span className="text-[10px]">SUPPR</span>
+            </Button>
+            <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400"
+              onClick={() => appendActivity("Mode prix rapide")}
+            >
+              <Tag className="h-4 w-4" />
+              Prix
+              <span className="text-[10px]">F4</span>
+            </Button>
+            <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400"
+              onClick={() => appendActivity("Ajustement quantité")}
+            >
+              <HandCoins className="h-4 w-4" />
+              Qté
+              <span className="text-[10px]">F3</span>
+            </Button>
+            <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+              onClick={handleFinishBasket}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Valider
+              <span className="text-[10px]">F11</span>
+            </Button>
+            <Button variant="outline" className="flex-1 flex-col gap-1 rounded-2xl text-xs" onClick={handlePrintReceipt}>
+              <Printer className="h-4 w-4" />
+              Reçu
+            </Button>
+          </div>
+
+          <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
+            <div className="rounded-2xl border border-border bg-foreground/90 p-4 text-background">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider opacity-80">
+                <span>Prix 2</span>
+                <span>Bon : 8</span>
+                <span>Date : {new Date().toLocaleDateString("fr-DZ")}</span>
+              </div>
+              <div className="mt-2 text-xs">
+                Vendeur : <span className="font-semibold">sahiheha</span>
+              </div>
+              <div className="text-xs">
+                État : <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-100">Nouveau</span>
+              </div>
+              <p className="mt-3 text-4xl font-semibold">{totalDisplayValue}</p>
+            </div>
+
+            <div className="mt-3 flex-1 overflow-hidden rounded-2xl border border-strong bg-background">
+              <div className="h-full overflow-auto">
+                <table className="w-full text-[11px]">
+                  <thead className="border-b border-strong bg-muted text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-2 font-medium">Product</th>
-                      <th className="px-4 py-2 font-medium text-right">Price</th>
+                      <th className="px-3 py-2 text-left font-medium">N°</th>
+                      <th className="px-3 py-2 text-left font-medium">Désignation</th>
+                      <th className="px-3 py-2 text-right font-medium">Prix U</th>
+                      <th className="px-3 py-2 text-right font-medium">Qté</th>
+                      <th className="px-3 py-2 text-right font-medium">Totale</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border bg-background">
-                    {availableProducts.map((product) => (
-                      <tr key={product.id}>
-                        <td className="px-4 py-2">{product.name}</td>
-                        <td className="px-4 py-2 text-right">{formatCurrency(product.price)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <aside className="flex min-h-0 flex-col gap-6 overflow-hidden">
-          <Card className="rounded-[2rem]">
-            <CardContent className="space-y-4 p-6">
-              <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Total à encaisser</p>
-              <p className="font-mono text-5xl font-semibold tracking-[0.18em] text-card-foreground sm:text-[3.5rem]">
-                {totalDisplayValue}
-              </p>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Lines</span>
-                <span>{totals.lines}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="flex min-h-0 flex-1 flex-col">
-            <CardHeader className="flex items-center justify-between border-b px-4 py-2">
-              <CardTitle className="text-base">Basket</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {totals.lines} item{totals.lines === 1 ? "" : "s"}
-              </p>
-            </CardHeader>
-            {manualMode ? (
-              <CardContent className="border-t bg-muted/30">
-                <form onSubmit={handleManualAdd} className="flex flex-col gap-3 lg:flex-row">
-                  <label className="flex flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Product
-                    <select
-                      value={manualProductId}
-                      onChange={(event) => setManualProductId(event.target.value)}
-                      className="rounded-md border bg-background px-3 py-2 text-sm"
-                    >
-                      {availableProducts.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} · {formatCurrency(product.price)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex w-full max-w-[120px] flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Qty
-                    <input
-                      type="number"
-                      min={1}
-                      value={manualQty}
-                      onChange={(event) =>
-                        setManualQty(Math.max(1, Number(event.target.value) || 1))
-                      }
-                      className="rounded-md border bg-background px-3 py-2 text-sm"
-                    />
-                  </label>
-                  <Button type="submit" className="w-full lg:w-auto">
-                    Add to basket
-                  </Button>
-                </form>
-              </CardContent>
-            ) : null}
-            <CardContent className="flex-1 overflow-hidden rounded-md border p-0">
-              <div className="h-full overflow-y-auto">
-                <table className="min-w-full divide-y divide-border text-sm">
-                  <thead className="sticky top-0 z-10 bg-muted/70 text-left text-xs uppercase text-muted-foreground backdrop-blur">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Item</th>
-                      <th className="px-4 py-2 font-medium text-right">Qty</th>
-                      <th className="px-4 py-2 font-medium text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border bg-background">
+                  <tbody>
                     {basketItems.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
-                          Scan or add an item to start the basket.
+                        <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                          Ajoutez un article pour démarrer.
                         </td>
                       </tr>
                     ) : (
-                      basketItems.map((item) => {
+                      basketItems.map((item, index) => {
                         const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
                         return (
-                          <tr key={item.id}>
-                            <td className="px-4 py-3 font-medium">{item.name}</td>
-                            <td className="px-4 py-3 text-right">{formatQuantity(item.qty, item.unit)}</td>
-                            <td className="px-4 py-3 text-right font-semibold">
+                          <tr key={item.id} className="border-b border-dashed border-strong">
+                            <td className="px-3 py-2 font-semibold">{index + 1}</td>
+                            <td className="px-3 py-2">{item.name}</td>
+                            <td className="px-3 py-2 text-right">{formatCurrency(item.price)}</td>
+                            <td className="px-3 py-2 text-right">{formatQuantity(item.qty, item.unit)}</td>
+                            <td className="px-3 py-2 text-right font-semibold">
                               {formatCurrency(lineTotal)}
                             </td>
                           </tr>
@@ -411,40 +556,114 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-            <CardContent className="border-t px-4 py-3">
-              <Button variant="outline" size="sm" onClick={() => setManualMode((prev) => !prev)}>
-                {manualMode ? "Hide manual add" : "Add item"}
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-3 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-1 items-center rounded-2xl border border-emerald-500 bg-background px-3 py-1">
+                  <ScanLine className="h-4 w-4 text-emerald-500" />
+                  <input className="w-full bg-transparent text-sm outline-none" placeholder="Rechercher client" />
+                </div>
+                <Button size="sm" variant="secondary">
+                  <Calculator className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  Livreur
+                  <select className="rounded-xl border border-strong bg-background px-2 py-1">
+                    <option>sahiheha</option>
+                    <option>khadeeja</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  Client
+                  <select className="rounded-xl border border-strong bg-background px-2 py-1">
+                    <option>Standard client</option>
+                    <option>VIP</option>
+                  </select>
+                </label>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  + Client
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => setManualMode((prev) => !prev)}>
+                  {manualMode ? "Masquer manuel" : "Ajouter manuel"}
+                </Button>
+              </div>
+              {manualMode ? (
+                <form className="mt-3 grid gap-2 text-[11px]" onSubmit={handleManualAdd}>
+                  <label className="flex flex-col gap-1">
+                    Produit
+                    <select
+                      value={manualProductId}
+                      onChange={(event) => setManualProductId(event.target.value)}
+                      className="rounded-xl border border-strong bg-background px-2 py-1"
+                    >
+                      {availableProducts.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} · {formatCurrency(product.price)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    Quantité
+                    <input
+                      type="number"
+                      min={1}
+                      value={manualQty}
+                      onChange={(event) => setManualQty(Math.max(1, Number(event.target.value) || 1))}
+                      className="rounded-xl border border-strong bg-background px-2 py-1"
+                    />
+                  </label>
+                  <Button type="submit" size="sm" className="w-full">
+                    Ajouter au ticket
+                  </Button>
+                </form>
+              ) : null}
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-3">
+              <div className="grid grid-cols-3 gap-2">
+                {keypadRows.map((row) =>
+                  row.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="rounded-xl border border-strong bg-background py-3 text-sm font-semibold shadow-inner"
+                  >
+                    {key}
+                  </button>
+                )),
+              )}
+                <button
+                  type="button"
+                  className="col-span-3 rounded-xl border border-emerald-500 bg-emerald-500 py-3 text-sm font-semibold text-white shadow-inner"
+                  onClick={handleFinishBasket}
+                >
+                  Valider
+                </button>
+              </div>
+            </div>
+          </div>
         </aside>
-      </main>
-      <footer className="fixed bottom-0 left-0 right-0 border-t bg-card/80 px-6 py-4 shadow-[0_-8px_20px_rgba(0,0,0,0.12)] backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
-            Register 2 · Shift 08:00-16:00
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              className="gap-2 border-destructive/60 text-destructive"
-              onClick={handleCancelBasket}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Cancel basket
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={handlePrintReceipt}>
-              <Printer className="h-4 w-4" />
-              Print receipt
-            </Button>
-            <Button className="gap-2" onClick={handleFinishBasket}>
-              <CheckCircle2 className="h-4 w-4" />
-              Validate & new basket
-            </Button>
-          </div>
+      </div>
+      {activityLog.length > 0 ? (
+        <div className="flex-shrink-0 rounded-2xl border border-strong bg-panel p-3 text-xs text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em]">Activité récente</p>
+          <ul className="mt-2 space-y-1">
+            {activityLog.map((entry) => (
+              <li key={entry.id} className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {entry.message}
+              </li>
+            ))}
+          </ul>
         </div>
-      </footer>
+      ) : null}
     </div>
   );
 }

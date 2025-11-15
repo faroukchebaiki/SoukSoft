@@ -43,66 +43,72 @@
   }
 
   :root {
-    --background: 216 100% 97%;
-    --foreground: 220 32% 14%;
-    --muted: 215 30% 92%;
-    --muted-foreground: 223 12% 36%;
+    --background: 15 45% 95%;
+    --foreground: 20 40% 15%;
+    --muted: 15 30% 89%;
+    --muted-foreground: 18 18% 35%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 32% 14%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 32% 14%;
-    --border: 215 28% 82%;
-    --input: 215 28% 82%;
-    --primary: 246 85% 62%;
+    --popover-foreground: 20 40% 15%;
+    --card: 20 38% 98%;
+    --card-foreground: 20 40% 15%;
+    --panel: 32 45% 92%;
+    --panel-foreground: 20 40% 15%;
+    --border: 18 25% 75%;
+    --border-strong: 18 30% 62%;
+    --input: 18 25% 75%;
+    --primary: 194 85% 46%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 35% 94%;
-    --secondary-foreground: 226 32% 20%;
-    --accent: 215 35% 94%;
-    --accent-foreground: 226 32% 20%;
-    --destructive: 2 85% 58%;
+    --secondary: 13 76% 60%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 162 55% 38%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 352 79% 48%;
     --destructive-foreground: 0 0% 100%;
-    --ring: 245 85% 62%;
+    --ring: 194 85% 46%;
     --radius: 0.85rem;
-    --chart-1: 246 90% 60%;
-    --chart-2: 199 89% 65%;
-    --chart-3: 45 95% 55%;
-    --chart-4: 312 85% 60%;
-    --chart-5: 160 70% 45%;
-    --shell-gradient-1: 215 84% 96%;
-    --shell-gradient-2: 232 69% 92%;
-    --shell-glow: 203 94% 85%;
-    --shadow-rgb: 15 23 42;
+    --chart-1: 194 80% 44%;
+    --chart-2: 32 72% 54%;
+    --chart-3: 160 55% 40%;
+    --chart-4: 10 80% 58%;
+    --chart-5: 300 60% 60%;
+    --shell-gradient-1: 15 40% 97%;
+    --shell-gradient-2: 205 55% 90%;
+    --shell-glow: 194 70% 78%;
+    --shadow-rgb: 76 60 48;
   }
 
   .dark {
-    --background: 225 60% 6%;
-    --foreground: 210 25% 95%;
-    --muted: 220 35% 14%;
-    --muted-foreground: 215 15% 70%;
-    --popover: 222 55% 8%;
-    --popover-foreground: 210 25% 95%;
-    --card: 222 50% 11%;
-    --card-foreground: 210 25% 95%;
-    --border: 220 32% 20%;
-    --input: 220 32% 20%;
-    --primary: 199 89% 71%;
-    --primary-foreground: 222 61% 5%;
-    --secondary: 222 42% 14%;
-    --secondary-foreground: 210 25% 95%;
-    --accent: 222 42% 14%;
-    --accent-foreground: 210 25% 95%;
-    --destructive: 2 68% 38%;
-    --destructive-foreground: 210 25% 95%;
-    --ring: 199 89% 71%;
-    --chart-1: 199 89% 71%;
-    --chart-2: 160 65% 56%;
-    --chart-3: 42 92% 58%;
-    --chart-4: 300 85% 68%;
-    --chart-5: 350 75% 60%;
-    --shell-gradient-1: 226 68% 18%;
-    --shell-gradient-2: 246 72% 7%;
-    --shell-glow: 189 95% 70%;
-    --shadow-rgb: 2 6 23;
+    --background: 18 25% 5%;
+    --foreground: 18 26% 92%;
+    --muted: 18 15% 14%;
+    --muted-foreground: 18 18% 66%;
+    --popover: 18 20% 9%;
+    --popover-foreground: 18 26% 92%;
+    --card: 18 20% 11%;
+    --card-foreground: 18 26% 92%;
+    --panel: 22 28% 16%;
+    --panel-foreground: 18 26% 92%;
+    --border: 20 12% 24%;
+    --border-strong: 20 15% 38%;
+    --input: 20 12% 24%;
+    --primary: 194 85% 62%;
+    --primary-foreground: 18 25% 5%;
+    --secondary: 32 60% 48%;
+    --secondary-foreground: 18 25% 5%;
+    --accent: 155 55% 45%;
+    --accent-foreground: 18 25% 5%;
+    --destructive: 352 70% 60%;
+    --destructive-foreground: 18 25% 5%;
+    --ring: 194 85% 62%;
+    --chart-1: 194 85% 62%;
+    --chart-2: 32 60% 52%;
+    --chart-3: 156 50% 45%;
+    --chart-4: 12 70% 55%;
+    --chart-5: 298 65% 65%;
+    --shell-gradient-1: 20 22% 12%;
+    --shell-gradient-2: 210 25% 8%;
+    --shell-glow: 194 70% 55%;
+    --shadow-rgb: 6 5 4;
   }
 
   .glass-panel {
@@ -160,5 +166,23 @@
     border-color: hsl(var(--border) / 0.55);
     box-shadow: 0 45px 120px rgba(var(--shadow-rgb), 0.55);
     color: hsl(var(--foreground));
+  }
+
+  @layer utilities {
+    .bg-panel {
+      background-color: hsl(var(--panel));
+    }
+
+    .bg-panel-soft {
+      background-color: hsl(var(--panel) / 0.85);
+    }
+
+    .border-strong {
+      border-color: hsl(var(--border-strong));
+    }
+
+    .hover\:border-strong:hover {
+      border-color: hsl(var(--border-strong));
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { ChevronDown, Home, Store } from "lucide-react";
+import { ChevronDown, Store } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -382,17 +382,6 @@ export default function App() {
           </div>
         </header>
       ) : null}
-      {!showSectionGrid ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="fixed left-4 top-4 z-30 rounded-full border border-border/60 bg-card/80 shadow"
-          onClick={() => setShowSectionGrid(true)}
-        >
-          <Home className="h-4 w-4" />
-        </Button>
-      ) : null}
-
       <main className={cn("flex flex-1 flex-col", showSectionGrid ? "px-8 py-6" : "p-0")}>
         {showSectionGrid ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-8">

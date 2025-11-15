@@ -420,8 +420,8 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-hidden rounded-[2rem] border border-border/50 bg-background shadow-inner">
-            <div className="h-full overflow-hidden rounded-[2rem]">{renderSection()}</div>
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full overflow-hidden">{renderSection()}</div>
           </div>
         )}
       </main>

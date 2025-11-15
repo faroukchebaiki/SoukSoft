@@ -452,6 +452,19 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
               </div>
             </section>
           </div>
+          {activityLog.length > 0 ? (
+            <div className="max-h-28 overflow-auto rounded-2xl border border-strong bg-panel p-3 text-xs text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em]">Activité récente</p>
+              <ul className="mt-2 space-y-1">
+                {activityLog.map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 bg-emerald-500" />
+                    {entry.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
         <aside className="flex w-full max-w-lg gap-3 overflow-hidden">
@@ -651,19 +664,6 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           </div>
         </aside>
       </div>
-      {activityLog.length > 0 ? (
-        <div className="flex-shrink-0 rounded-2xl border border-strong bg-panel p-3 text-xs text-muted-foreground">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em]">Activité récente</p>
-          <ul className="mt-2 space-y-1">
-            {activityLog.map((entry) => (
-              <li key={entry.id} className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {entry.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   );
 }

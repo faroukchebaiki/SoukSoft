@@ -47,6 +47,19 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     }
   }, [scannerListening]);
 
+  useEffect(() => {
+    if (availableProducts.length === 0) {
+      setManualProductId("");
+      return;
+    }
+    setManualProductId((current) => {
+      if (current && availableProducts.some((product) => product.id === current)) {
+        return current;
+      }
+      return availableProducts[0]?.id ?? "";
+    });
+  }, [availableProducts]);
+
 
   const totals = useMemo<CheckoutTotals>(() => {
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);

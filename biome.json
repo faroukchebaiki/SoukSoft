@@ -6,7 +6,17 @@
 		"useIgnoreFile": false
 	},
 	"files": {
-		"ignoreUnknown": false
+		"ignoreUnknown": false,
+		"includes": [
+			"src/**",
+			"src-tauri/src/**",
+			"src-tauri/tauri.conf.json",
+			"src-tauri/Cargo.toml",
+			"public/**",
+			"package.json",
+			"tsconfig*.json",
+			"vite.config.ts"
+		]
 	},
 	"formatter": {
 		"enabled": true,

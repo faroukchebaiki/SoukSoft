@@ -1,11 +1,11 @@
 import { AlertTriangle, CalendarClock, RefreshCcw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CatalogProduct, Promotion } from "@/types";
-import { STORAGE_KEY, getStoredProducts } from "@/lib/productStorage";
+import { PRODUCT_STORAGE_EVENT, STORAGE_KEY, getStoredProducts } from "@/lib/productStorage";
 import { formatCurrency } from "@/lib/format";
 import { addPromotion, getPromotions } from "@/lib/promotionStorage";
 
@@ -18,6 +18,10 @@ interface ExpiringEntry {
   daysRemaining: number;
 }
 
+interface ExpiringProductsProps {
+  products?: CatalogProduct[];
+}
+
 function getMarkdownPercent(daysRemaining: number) {
   if (daysRemaining < 0) return 50;
   if (daysRemaining <= 2) return 40;
@@ -26,26 +30,41 @@ function getMarkdownPercent(daysRemaining: number) {
   return 10;
 }
 
-export function ExpiringProducts() {
+export function ExpiringProducts({ products: externalProducts }: ExpiringProductsProps = {}) {
   const [windowDays, setWindowDays] = useState(30);
-  const [products, setProducts] = useState<CatalogProduct[]>(() => getStoredProducts());
+  const [products, setProducts] = useState<CatalogProduct[]>(
+    () => externalProducts ?? getStoredProducts(),
+  );
   const [promotions, setPromotions] = useState<Promotion[]>(() => getPromotions());
   const [promotionNotice, setPromotionNotice] = useState<string | null>(null);
 
-  const syncProducts = () => {
+  const syncProducts = useCallback(() => {
     setProducts(getStoredProducts());
-  };
+  }, []);
 
   useEffect(() => {
+    if (externalProducts) {
+      setProducts(externalProducts);
+    }
+  }, [externalProducts]);
+
+  useEffect(() => {
+    if (externalProducts) return;
+    if (typeof window === "undefined") return;
+    const handleProductEvent = () => syncProducts();
     const handleStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY) {
         syncProducts();
       }
     };
 
+    window.addEventListener(PRODUCT_STORAGE_EVENT, handleProductEvent);
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    return () => {
+      window.removeEventListener(PRODUCT_STORAGE_EVENT, handleProductEvent);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [externalProducts, syncProducts]);
 
   const expiringEntries = useMemo<ExpiringEntry[]>(() => {
     const now = Date.now();

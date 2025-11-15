@@ -1,19 +1,19 @@
 import { ChevronDown, Home, Store } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_SECTION,
   cartItems,
   navigation,
-  catalogProducts,
   purchaseHistory,
   settingsOptions,
   userProfiles,
   DEFAULT_USER_ID,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import type { AccountProfile, Section, UserRole } from "@/types";
+import { getStoredProducts, PRODUCT_STORAGE_EVENT, STORAGE_KEY } from "@/lib/productStorage";
+import type { AccountProfile, CatalogProduct, Section, UserRole } from "@/types";
 import { AllItems } from "@/pages/AllItems";
 import { MainPage } from "@/pages/MainPage";
 import { ProductBuilder } from "@/pages/ProductBuilder";
@@ -87,6 +87,7 @@ export default function App() {
     resolveStoredUserId(initialAccountsRef.current ?? userProfiles),
   );
   const [defaultSectionPrefs] = useState<DefaultSectionPrefs>(() => readDefaultSectionPrefs());
+  const [catalogData, setCatalogData] = useState<CatalogProduct[]>(() => getStoredProducts());
 
   const activeUser = useMemo(
     () => accounts.find((user) => user.id === activeUserId) ?? null,
@@ -118,6 +119,25 @@ export default function App() {
       window.localStorage.removeItem(USER_STORAGE_KEY);
     }
   }, [activeUserId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncCatalog = () => {
+      setCatalogData(getStoredProducts());
+    };
+    syncCatalog();
+    window.addEventListener(PRODUCT_STORAGE_EVENT, syncCatalog);
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY) {
+        syncCatalog();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(PRODUCT_STORAGE_EVENT, syncCatalog);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeUser) return;
@@ -236,12 +256,6 @@ export default function App() {
     );
   }
 
-  useEffect(() => {
-    if (!showSectionGrid) {
-      setIsUserMenuOpen(false);
-    }
-  }, [showSectionGrid]);
-
   const renderSection = () => {
     if (!activeUser) return null;
     if (!allowedSections.includes(activeSection)) {
@@ -260,17 +274,17 @@ export default function App() {
         return (
           <MainPage
             initialCartItems={cartItems}
-            availableProducts={catalogProducts}
+            availableProducts={catalogData}
           />
         );
       case "All items":
-        return <AllItems products={catalogProducts} />;
+        return <AllItems products={catalogData} />;
       case "History":
         return <PurchaseHistory entries={purchaseHistory} />;
       case "Settings":
         return <Settings options={settingsOptions} />;
       case "Expiring items":
-        return <ExpiringProducts />;
+        return <ExpiringProducts products={catalogData} />;
       case "Product builder":
         return <ProductBuilder />;
       default:

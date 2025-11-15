@@ -136,7 +136,9 @@ function parseCsvRecords(text: string): CsvRecord[] {
   const headerLine = lines[0].replace(/^\uFEFF/, "");
   const headerCells = splitCsvLine(headerLine);
   const headerLookup = new Map<string, CsvField>();
-  CSV_HEADERS.forEach((field) => headerLookup.set(field.toLowerCase(), field));
+  CSV_HEADERS.forEach((field) => {
+    headerLookup.set(field.toLowerCase(), field);
+  });
   const columnIndexes = new Map<CsvField, number>();
   headerCells.forEach((cell, index) => {
     const key = cell.trim().toLowerCase();
@@ -1026,14 +1028,16 @@ export function ProductBuilder() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium">Markup (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
-                      value={markupInput}
-                      onChange={(event) => setMarkupInput(event.target.value)}
-                    />
+                    <label className="flex items-center gap-2 text-xs font-medium">
+                      <span>Markup (%)</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+                        value={markupInput}
+                        onChange={(event) => setMarkupInput(event.target.value)}
+                      />
+                    </label>
                     <Button
                       type="button"
                       size="sm"
@@ -1045,14 +1049,16 @@ export function ProductBuilder() {
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium">Min qty</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
-                      value={minQtyInput}
-                      onChange={(event) => setMinQtyInput(event.target.value)}
-                    />
+                    <label className="flex items-center gap-2 text-xs font-medium">
+                      <span>Min qty</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+                        value={minQtyInput}
+                        onChange={(event) => setMinQtyInput(event.target.value)}
+                      />
+                    </label>
                     <Button
                       type="button"
                       size="sm"

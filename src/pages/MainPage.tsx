@@ -298,7 +298,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           event.preventDefault();
           appendActivity("Module prix rapide ouvert");
           break;
-        case "f5":
+        case "f10":
           event.preventDefault();
           handleCancelBasket();
           break;

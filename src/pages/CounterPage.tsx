@@ -7,6 +7,7 @@ import {
   CreditCard,
   FolderCog,
   HandCoins,
+  Home,
   PackagePlus,
   Plus,
   Printer,
@@ -24,14 +25,10 @@ import { VAT_RATE } from "@/data/mockData";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
 
-interface MainPageProps {
+interface CounterPageProps {
   initialCartItems: CartItem[];
   availableProducts: CatalogProduct[];
-}
-
-interface ActivityLogEntry {
-  id: string;
-  message: string;
+  onGoHome?: () => void;
 }
 
 const toolbarActions = [
@@ -75,19 +72,27 @@ const keypadRows = [
   ["0", "00", "C"],
 ];
 
-export function MainPage({ initialCartItems, availableProducts }: MainPageProps) {
+export function CounterPage({ initialCartItems, availableProducts, onGoHome }: CounterPageProps) {
   const [basketItems, setBasketItems] = useState<CartItem[]>(() => initialCartItems);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [scannerQty, setScannerQty] = useState(1);
   const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTab, setActiveTab] = useState(topTabs[0].label);
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [manualMode, setManualMode] = useState(false);
   const [manualProductId, setManualProductId] = useState(availableProducts[0]?.id ?? "");
   const [manualQty, setManualQty] = useState(1);
+  const [isPricePanelOpen, setIsPricePanelOpen] = useState(false);
+  const [priceInput, setPriceInput] = useState("");
+  const [quantityInput, setQuantityInput] = useState("");
+  const [totalInput, setTotalInput] = useState("");
+  const [pricePanelFocus, setPricePanelFocus] = useState<"price" | "quantity">("price");
+  const [priceModalItem, setPriceModalItem] = useState<CartItem | null>(null);
   const scannerInputRef = useRef<HTMLInputElement>(null);
+  const priceInputRef = useRef<HTMLInputElement>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scannerListening) {
@@ -107,6 +112,35 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
       return availableProducts[0]?.id ?? "";
     });
   }, [availableProducts]);
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const stillExists = basketItems.some((item) => item.id === selectedItemId);
+    if (!stillExists) {
+      setSelectedItemId(null);
+    }
+  }, [basketItems, selectedItemId]);
+
+  const selectedItem = useMemo(
+    () => basketItems.find((item) => item.id === selectedItemId) ?? null,
+    [basketItems, selectedItemId],
+  );
+
+  useEffect(() => {
+    if (isPricePanelOpen && priceModalItem) {
+      setPriceInput(String(priceModalItem.price));
+      setQuantityInput(String(priceModalItem.qty));
+      setTotalInput(String(priceModalItem.price * priceModalItem.qty));
+      requestAnimationFrame(() => {
+        if (pricePanelFocus === "price") {
+          priceInputRef.current?.focus();
+          priceInputRef.current?.select();
+        } else {
+          quantityInputRef.current?.focus();
+          quantityInputRef.current?.select();
+        }
+      });
+    }
+  }, [isPricePanelOpen, priceModalItem, pricePanelFocus]);
 
   const categories = useMemo(() => {
     const unique = Array.from(new Set(availableProducts.map((product) => product.category)));
@@ -157,13 +191,17 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     return `${value} DA`;
   }, [totals.total]);
 
-  const appendActivity = useCallback((line: string) => {
-    const entry: ActivityLogEntry = {
-      id: crypto.randomUUID?.() ?? `log-${Date.now()}-${Math.random()}`,
-      message: line,
-    };
-    setActivityLog((log) => [entry, ...log].slice(0, 6));
+  const focusScannerInput = useCallback(() => {
+    scannerInputRef.current?.focus();
   }, []);
+
+  const handleGoHome = useCallback(() => {
+    if (onGoHome) {
+      onGoHome();
+    } else {
+      focusScannerInput();
+    }
+  }, [focusScannerInput, onGoHome]);
 
   const upsertItem = useCallback(
     (product: CatalogProduct, quantity: number) => {
@@ -187,43 +225,26 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
             qty: quantity,
             price: product.price,
             category: product.category,
+            imageData: product.imageData,
           },
         ];
       });
-      appendActivity(`Ajouté ${product.name} ×${quantity}`);
     },
-    [appendActivity],
+    [],
   );
-
-  const focusScannerInput = useCallback(() => {
-    scannerInputRef.current?.focus();
-  }, []);
 
   const handleScanSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (!scannerListening || !scannerInput.trim()) return;
-      const product = availableProducts.find(
-        (item) => item.barcode === scannerInput.trim(),
-      );
-      if (!product) {
-        appendActivity(`Code inconnu ${scannerInput.trim()}`);
-        return;
-      }
+      const product = availableProducts.find((item) => item.barcode === scannerInput.trim());
+      if (!product) return;
       upsertItem(product, scannerQty);
       setScannerInput("");
       setScannerQty(1);
       focusScannerInput();
     },
-    [
-      appendActivity,
-      availableProducts,
-      scannerInput,
-      scannerListening,
-      scannerQty,
-      upsertItem,
-      focusScannerInput,
-    ],
+    [availableProducts, scannerInput, scannerListening, scannerQty, upsertItem, focusScannerInput],
   );
 
   const handleProductCardClick = useCallback(
@@ -249,34 +270,102 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
 
   const handleCancelBasket = useCallback(() => {
     setBasketItems(initialCartItems);
-    appendActivity("Panier restauré");
     focusScannerInput();
-  }, [appendActivity, focusScannerInput, initialCartItems]);
+    setSelectedItemId(null);
+  }, [focusScannerInput, initialCartItems]);
 
   const handleFinishBasket = useCallback(() => {
-    appendActivity(
-      `Panier validé à ${new Intl.DateTimeFormat("fr-DZ", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date())}`,
-    );
     setBasketItems([]);
     focusScannerInput();
-  }, [appendActivity, focusScannerInput]);
+    setSelectedItemId(null);
+  }, [focusScannerInput]);
 
   const handlePrintReceipt = useCallback(() => {
-    appendActivity("Reçu imprimé");
     window.print();
-  }, [appendActivity]);
+  }, []);
 
   const handleDeleteLastItem = useCallback(() => {
     setBasketItems((prev) => {
       if (prev.length === 0) return prev;
-      const next = prev.slice(0, -1);
-      appendActivity("Dernière ligne supprimée");
-      return next;
+      if (selectedItemId) {
+        const exists = prev.some((item) => item.id === selectedItemId);
+        if (exists) {
+          setSelectedItemId(null);
+          return prev.filter((item) => item.id !== selectedItemId);
+        }
+        setSelectedItemId(null);
+      }
+      return prev.slice(0, -1);
     });
-  }, [appendActivity]);
+  }, [selectedItemId]);
+
+  const handleOpenPricePanel = useCallback(
+    (focusField: "price" | "quantity" = "price") => {
+      const targetItem = selectedItem ?? basketItems[basketItems.length - 1] ?? null;
+      if (!targetItem) return;
+      if (!selectedItemId || selectedItemId !== targetItem.id) {
+        setSelectedItemId(targetItem.id);
+      }
+      setPriceModalItem(targetItem);
+      setPriceInput(String(targetItem.price));
+      setQuantityInput(String(targetItem.qty));
+      setTotalInput(String(targetItem.price * targetItem.qty));
+      setPricePanelFocus(focusField);
+      setIsPricePanelOpen(true);
+    },
+    [basketItems, selectedItem, selectedItemId],
+  );
+
+  const handleClosePricePanel = useCallback(() => {
+    setIsPricePanelOpen(false);
+    setPriceModalItem(null);
+  }, []);
+
+  const handleConfirmPriceUpdate = useCallback(() => {
+    if (!priceModalItem) return;
+    const nextPrice = Number(priceInput);
+    const nextQty = Number(quantityInput);
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) return;
+    if (!Number.isFinite(nextQty) || nextQty <= 0) return;
+    setBasketItems((prev) =>
+      prev.map((item) =>
+        item.id === priceModalItem.id ? { ...item, price: nextPrice, qty: nextQty } : item,
+      ),
+    );
+    setIsPricePanelOpen(false);
+    setPriceModalItem(null);
+  }, [priceInput, quantityInput, priceModalItem]);
+
+  const handlePriceInputChange = (value: string) => {
+    setPriceInput(value);
+    const priceValue = Number(value) || 0;
+    const qtyValue = Number(quantityInput) || 0;
+    setTotalInput(String(priceValue * qtyValue));
+  };
+
+  const handleQuantityInputChange = (value: string) => {
+    setQuantityInput(value);
+    const qtyValue = Number(value) || 0;
+    const priceValue = Number(priceInput) || 0;
+    setTotalInput(String(priceValue * qtyValue));
+  };
+
+  const handleTotalInputChange = (value: string) => {
+    setTotalInput(value);
+    const totalValue = Number(value) || 0;
+    const qtyValue = Number(quantityInput) || 0;
+    if (qtyValue > 0) {
+      setPriceInput(String(totalValue / qtyValue));
+    }
+  };
+
+  const handlePricePanelSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      handleConfirmPriceUpdate();
+    },
+    [handleConfirmPriceUpdate],
+  );
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -294,9 +383,9 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           event.preventDefault();
           setScannerListening((prev) => !prev);
           break;
-        case "f4":
+        case "escape":
           event.preventDefault();
-          appendActivity("Module prix rapide ouvert");
+          handleGoHome();
           break;
         case "f10":
           event.preventDefault();
@@ -312,7 +401,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [appendActivity, focusScannerInput, handleCancelBasket, handleFinishBasket]);
+  }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -452,23 +541,18 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
               </div>
             </section>
           </div>
-          {activityLog.length > 0 ? (
-            <div className="max-h-28 overflow-auto rounded-2xl border border-strong bg-panel p-3 text-xs text-muted-foreground">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em]">Activité récente</p>
-              <ul className="mt-2 space-y-1">
-                {activityLog.map((entry) => (
-                  <li key={entry.id} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 bg-emerald-500" />
-                    {entry.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </div>
 
         <aside className="flex w-full max-w-lg gap-3 overflow-hidden">
           <div className="flex w-24 flex-col gap-2 rounded-2xl border border-strong bg-panel-soft p-2 text-[11px] shadow-inner">
+            <Button
+              className="flex-[0.5] flex-col gap-1 rounded-2xl bg-teal-500 text-xs text-white hover:bg-teal-400"
+              onClick={handleGoHome}
+            >
+              <Home className="h-4 w-4" />
+              Home
+              <span className="text-[10px]">ESC</span>
+            </Button>
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400"
               onClick={handleCancelBasket}
@@ -486,16 +570,18 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
               <span className="text-[10px]">SUPPR</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400"
-              onClick={() => appendActivity("Mode prix rapide")}
+              className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400 disabled:opacity-60"
+              onClick={() => handleOpenPricePanel("price")}
+              disabled={basketItems.length === 0}
             >
               <Tag className="h-4 w-4" />
               Prix
               <span className="text-[10px]">F4</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400"
-              onClick={() => appendActivity("Ajustement quantité")}
+              className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400 disabled:opacity-60"
+              onClick={() => handleOpenPricePanel("quantity")}
+              disabled={basketItems.length === 0}
             >
               <HandCoins className="h-4 w-4" />
               Qté
@@ -534,7 +620,7 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
             <div className="mt-3 flex-1 overflow-hidden rounded-2xl border border-strong bg-background">
               <div className="h-full overflow-auto">
                 <table className="w-full text-[11px]">
-                  <thead className="border-b border-strong bg-muted text-muted-foreground">
+                  <thead className="sticky top-0 z-10 border-b border-strong bg-muted text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">N°</th>
                       <th className="px-3 py-2 text-left font-medium">Désignation</th>
@@ -554,7 +640,17 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
                       basketItems.map((item, index) => {
                         const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
                         return (
-                          <tr key={item.id} className="border-b border-dashed border-strong">
+                          <tr
+                            key={item.id}
+                            onClick={() =>
+                              setSelectedItemId((current) => (current === item.id ? null : item.id))
+                            }
+                            className={`cursor-pointer border-b border-dashed border-strong transition ${
+                              selectedItemId === item.id
+                                ? "bg-emerald-100/50 dark:bg-emerald-500/10"
+                                : "hover:bg-muted/40"
+                            }`}
+                          >
                             <td className="px-3 py-2 font-semibold">{index + 1}</td>
                             <td className="px-3 py-2">{item.name}</td>
                             <td className="px-3 py-2 text-right">{formatCurrency(item.price)}</td>
@@ -664,6 +760,84 @@ export function MainPage({ initialCartItems, availableProducts }: MainPageProps)
           </div>
         </aside>
       </div>
+      {isPricePanelOpen && priceModalItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <form
+            className="w-full max-w-lg rounded-[2rem] border border-strong bg-panel text-foreground shadow-[0_30px_60px_rgba(0,0,0,0.45)] p-6"
+            onSubmit={handlePricePanelSubmit}
+          >
+            <div className="flex items-center gap-4">
+              {priceModalItem.imageData ? (
+                <img
+                  src={priceModalItem.imageData}
+                  alt={priceModalItem.name}
+                  className="h-20 w-20 rounded-2xl border border-border object-cover"
+                />
+              ) : (
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-border bg-muted text-2xl font-semibold">
+                  {priceModalItem.name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <p className="text-sm text-muted-foreground">Produit sélectionné</p>
+                <p className="text-lg font-semibold">{priceModalItem.name}</p>
+                <p className="text-xs text-muted-foreground">{priceModalItem.sku}</p>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-4">
+              <label className="text-sm font-medium text-foreground">
+                Nom du produit
+                <input
+                  className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground/80"
+                  value={priceModalItem.name}
+                  disabled
+                />
+              </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Prix unitaire
+                    <input
+                      ref={priceInputRef}
+                      type="number"
+                      min={0}
+                      className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
+                      value={priceInput}
+                      onChange={(event) => handlePriceInputChange(event.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm font-medium text-foreground">
+                    Quantité
+                    <input
+                      ref={quantityInputRef}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
+                      value={quantityInput}
+                      onChange={(event) => handleQuantityInputChange(event.target.value)}
+                    />
+                  </label>
+                </div>
+              <label className="text-sm font-medium text-foreground">
+                Total
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
+                  value={totalInput}
+                  onChange={(event) => handleTotalInputChange(event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={handleClosePricePanel}>
+                Annuler
+              </Button>
+              <Button type="submit">Enregistrer</Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

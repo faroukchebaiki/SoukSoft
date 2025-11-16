@@ -26,6 +26,7 @@ export interface CartItem {
   category: string;
   discountValue?: number;
   discountLabel?: string;
+  imageData?: string;
 }
 
 export interface CheckoutTotals {

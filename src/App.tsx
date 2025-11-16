@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { getStoredProducts, PRODUCT_STORAGE_EVENT, STORAGE_KEY } from "@/lib/productStorage";
 import type { AccountProfile, CatalogProduct, Section, UserRole } from "@/types";
 import { AllItems } from "@/pages/AllItems";
-import { MainPage } from "@/pages/MainPage";
+import { CounterPage } from "@/pages/CounterPage";
 import { ProductBuilder } from "@/pages/ProductBuilder";
 import { PurchaseHistory } from "@/pages/PurchaseHistory";
 import { Settings } from "@/pages/Settings";
@@ -272,9 +272,10 @@ export default function App() {
     switch (activeSection) {
       case "Counter":
         return (
-          <MainPage
+          <CounterPage
             initialCartItems={cartItems}
             availableProducts={catalogData}
+            onGoHome={() => setShowSectionGrid(true)}
           />
         );
       case "All items":

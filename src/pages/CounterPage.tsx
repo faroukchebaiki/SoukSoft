@@ -18,18 +18,28 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type MutableRefObject,
+  type RefObject,
+  type SyntheticEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/components/ui/button";
-import { VAT_RATE } from "@/data/mockData";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
 
 interface CounterPageProps {
-  initialCartItems: CartItem[];
   availableProducts: CatalogProduct[];
   onGoHome?: () => void;
 }
+
+type SelectionRange = { start: number; end: number };
 
 const toolbarActions = [
   { label: "Produits", shortcut: "F1", icon: ShoppingBag },
@@ -69,11 +79,11 @@ const keypadRows = [
   ["7", "8", "9"],
   ["4", "5", "6"],
   ["1", "2", "3"],
-  ["0", "00", "C"],
+  ["←", "0", "C"],
 ];
 
-export function CounterPage({ initialCartItems, availableProducts, onGoHome }: CounterPageProps) {
-  const [basketItems, setBasketItems] = useState<CartItem[]>(() => initialCartItems);
+export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
+  const [basketItems, setBasketItems] = useState<CartItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
@@ -88,11 +98,38 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
   const [priceInput, setPriceInput] = useState("");
   const [quantityInput, setQuantityInput] = useState("");
   const [totalInput, setTotalInput] = useState("");
-  const [pricePanelFocus, setPricePanelFocus] = useState<"price" | "quantity">("price");
+  const [pricePanelFocus, setPricePanelFocus] = useState<"price" | "quantity" | "total">("price");
   const [priceModalItem, setPriceModalItem] = useState<CartItem | null>(null);
   const scannerInputRef = useRef<HTMLInputElement>(null);
+  const basketTableBodyRef = useRef<HTMLTableSectionElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
+  const totalInputRef = useRef<HTMLInputElement>(null);
+  const priceSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
+  const quantitySelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
+  const totalSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
+
+  const handlePriceSelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
+    const target = event.currentTarget;
+    priceSelectionRef.current = {
+      start: target.selectionStart ?? 0,
+      end: target.selectionEnd ?? target.value.length,
+    };
+  }, []);
+  const handleQuantitySelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
+    const target = event.currentTarget;
+    quantitySelectionRef.current = {
+      start: target.selectionStart ?? 0,
+      end: target.selectionEnd ?? target.value.length,
+    };
+  }, []);
+  const handleTotalSelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
+    const target = event.currentTarget;
+    totalSelectionRef.current = {
+      start: target.selectionStart ?? 0,
+      end: target.selectionEnd ?? target.value.length,
+    };
+  }, []);
 
   useEffect(() => {
     if (scannerListening) {
@@ -134,9 +171,13 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
         if (pricePanelFocus === "price") {
           priceInputRef.current?.focus();
           priceInputRef.current?.select();
+          const length = priceInputRef.current?.value.length ?? 0;
+          priceSelectionRef.current = { start: 0, end: length };
         } else {
           quantityInputRef.current?.focus();
           quantityInputRef.current?.select();
+          const length = quantityInputRef.current?.value.length ?? 0;
+          quantitySelectionRef.current = { start: 0, end: length };
         }
       });
     }
@@ -163,8 +204,8 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const discounts = basketItems.reduce((sum, item) => sum + (item.discountValue ?? 0), 0);
     const taxable = subtotal - discounts;
-    const vat = taxable * VAT_RATE;
-    const total = taxable + vat;
+    const vat = 0;
+    const total = taxable;
     const produceWeight = basketItems
       .filter((item) => item.unit === "kg")
       .reduce((sum, item) => sum + item.qty, 0);
@@ -191,6 +232,12 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
     return `${value} DA`;
   }, [totals.total]);
 
+  useEffect(() => {
+    if (!basketItems.length) return;
+    const tbody = basketTableBodyRef.current;
+    tbody?.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [basketItems]);
+
   const focusScannerInput = useCallback(() => {
     scannerInputRef.current?.focus();
   }, []);
@@ -212,6 +259,12 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
           const updated = [...items];
           const item = updated[existingIndex];
           updated[existingIndex] = { ...item, qty: item.qty + quantity };
+          setTimeout(() => {
+            const tbody = basketTableBodyRef.current;
+            if (tbody) {
+              tbody.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+          }, 0);
           return updated;
         }
         return [
@@ -269,10 +322,10 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
   );
 
   const handleCancelBasket = useCallback(() => {
-    setBasketItems(initialCartItems);
+    setBasketItems([]);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [focusScannerInput, initialCartItems]);
+  }, [focusScannerInput]);
 
   const handleFinishBasket = useCallback(() => {
     setBasketItems([]);
@@ -367,6 +420,88 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
     [handleConfirmPriceUpdate],
   );
 
+  const handleKeypadInput = (key: string) => {
+    const applyInput = (
+      current: string,
+      changeHandler: (value: string) => void,
+      inputRef: RefObject<HTMLInputElement>,
+      selectionRef: MutableRefObject<SelectionRange>,
+    ) => {
+      const target = inputRef.current;
+      const selection = selectionRef.current;
+      if (!target) {
+        changeHandler(current);
+        return;
+      }
+      if (key === "C") {
+        changeHandler("");
+        requestAnimationFrame(() => {
+          target?.focus();
+          target?.setSelectionRange(0, 0);
+        });
+        selectionRef.current = { start: 0, end: 0 };
+        return;
+      }
+      if (key === "←") {
+        const selectionStart = target.selectionStart ?? selection.start ?? target.value.length;
+        const selectionEnd = target.selectionEnd ?? selection.end ?? target.value.length;
+        let nextStart = selectionStart;
+        let nextEnd = selectionStart;
+        let nextValue: string;
+        if (selectionStart !== selectionEnd) {
+          nextValue = `${target.value.slice(0, selectionStart)}${target.value.slice(selectionEnd)}`;
+        } else if (selectionStart > 0) {
+          nextValue = `${target.value.slice(0, selectionStart - 1)}${target.value.slice(selectionEnd)}`;
+          nextStart -= 1;
+          nextEnd -= 1;
+        } else {
+          nextValue = target.value;
+        }
+        changeHandler(nextValue);
+        selectionRef.current = { start: nextStart, end: nextEnd };
+        requestAnimationFrame(() => {
+          target.focus();
+          target.setSelectionRange(nextStart, nextEnd);
+        });
+        return;
+      }
+      const insertValue = key;
+      const value = target.value ?? current;
+      const selectionStart = target.selectionStart ?? selection.start ?? value.length;
+      const selectionEnd = target.selectionEnd ?? selection.end ?? value.length;
+      const prefix = value.slice(0, selectionStart);
+      const suffix = value.slice(selectionEnd);
+      const nextValue = `${prefix}${insertValue}${suffix}`;
+      changeHandler(nextValue);
+      selectionRef.current = {
+        start: selectionStart + insertValue.length,
+        end: selectionStart + insertValue.length,
+      };
+      requestAnimationFrame(() => {
+        const caret = selectionStart + insertValue.length;
+        target?.focus();
+        target?.setSelectionRange(caret, caret);
+      });
+    };
+
+    switch (pricePanelFocus) {
+      case "quantity":
+        applyInput(
+          quantityInput,
+          handleQuantityInputChange,
+          quantityInputRef,
+          quantitySelectionRef,
+        );
+        break;
+      case "total":
+        applyInput(totalInput, handleTotalInputChange, totalInputRef, totalSelectionRef);
+        break;
+      default:
+        applyInput(priceInput, handlePriceInputChange, priceInputRef, priceSelectionRef);
+        break;
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -402,6 +537,8 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
+
+  const isBasketEmpty = basketItems.length === 0;
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -554,16 +691,18 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
               <span className="text-[10px]">ESC</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400"
+              className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400 disabled:opacity-60"
               onClick={handleCancelBasket}
+              disabled={isBasketEmpty}
             >
               <RotateCcw className="h-4 w-4" />
               Annuler
               <span className="text-[10px]">F10</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-amber-500 text-xs text-white hover:bg-amber-400"
+              className="flex-1 flex-col gap-1 rounded-2xl bg-amber-500 text-xs text-white hover:bg-amber-400 disabled:opacity-60"
               onClick={handleDeleteLastItem}
+              disabled={isBasketEmpty}
             >
               <Trash2 className="h-4 w-4" />
               Suppr
@@ -572,7 +711,7 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400 disabled:opacity-60"
               onClick={() => handleOpenPricePanel("price")}
-              disabled={basketItems.length === 0}
+              disabled={isBasketEmpty}
             >
               <Tag className="h-4 w-4" />
               Prix
@@ -581,21 +720,26 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400 disabled:opacity-60"
               onClick={() => handleOpenPricePanel("quantity")}
-              disabled={basketItems.length === 0}
+              disabled={isBasketEmpty}
             >
               <HandCoins className="h-4 w-4" />
               Qté
               <span className="text-[10px]">F3</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+              className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-600 text-xs text-white hover:bg-emerald-500 disabled:opacity-60"
               onClick={handleFinishBasket}
+              disabled={isBasketEmpty}
             >
               <CheckCircle2 className="h-4 w-4" />
               Valider
               <span className="text-[10px]">F11</span>
             </Button>
-            <Button variant="outline" className="flex-1 flex-col gap-1 rounded-2xl text-xs" onClick={handlePrintReceipt}>
+            <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-purple-500 text-xs text-white hover:bg-purple-400 disabled:opacity-60"
+              onClick={handlePrintReceipt}
+              disabled={isBasketEmpty}
+            >
               <Printer className="h-4 w-4" />
               Reçu
             </Button>
@@ -604,23 +748,17 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
           <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
             <div className="rounded-2xl border border-border bg-foreground/90 p-4 text-background">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-wider opacity-80">
-                <span>Prix 2</span>
-                <span>Bon : 8</span>
+                <span>FirstLastName</span>
+                <span>Bon : {basketItems.length}</span>
                 <span>Date : {new Date().toLocaleDateString("fr-DZ")}</span>
               </div>
-              <div className="mt-2 text-xs">
-                Vendeur : <span className="font-semibold">sahiheha</span>
-              </div>
-              <div className="text-xs">
-                État : <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-100">Nouveau</span>
-              </div>
-              <p className="mt-3 text-4xl font-semibold">{totalDisplayValue}</p>
+              <p className="mt-6 text-6xl font-semibold tracking-tight">{totalDisplayValue}</p>
             </div>
 
             <div className="mt-3 flex-1 overflow-hidden rounded-2xl border border-strong bg-background">
               <div className="h-full overflow-auto">
                 <table className="w-full text-[11px]">
-                  <thead className="sticky top-0 z-10 border-b border-strong bg-muted text-muted-foreground">
+                  <thead className="sticky top-0 z-10 border-b border-strong bg-panel text-muted-foreground shadow">
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">N°</th>
                       <th className="px-3 py-2 text-left font-medium">Désignation</th>
@@ -629,7 +767,7 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
                       <th className="px-3 py-2 text-right font-medium">Totale</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody ref={basketTableBodyRef}>
                     {basketItems.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
@@ -648,7 +786,9 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
                             className={`cursor-pointer border-b border-dashed border-strong transition ${
                               selectedItemId === item.id
                                 ? "bg-emerald-100/50 dark:bg-emerald-500/10"
-                                : "hover:bg-muted/40"
+                                : index === 0
+                                  ? "bg-muted/40 hover:bg-muted/50"
+                                  : "hover:bg-muted/40"
                             }`}
                           >
                             <td className="px-3 py-2 font-semibold">{index + 1}</td>
@@ -784,50 +924,74 @@ export function CounterPage({ initialCartItems, availableProducts, onGoHome }: C
                 <p className="text-xs text-muted-foreground">{priceModalItem.sku}</p>
               </div>
             </div>
-            <div className="mt-6 grid gap-4">
-              <label className="text-sm font-medium text-foreground">
-                Nom du produit
-                <input
-                  className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground/80"
-                  value={priceModalItem.name}
-                  disabled
-                />
-              </label>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Prix unitaire
-                    <input
-                      ref={priceInputRef}
-                      type="number"
-                      min={0}
-                      className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
-                      value={priceInput}
-                      onChange={(event) => handlePriceInputChange(event.target.value)}
-                    />
-                  </label>
-                  <label className="text-sm font-medium text-foreground">
-                    Quantité
-                    <input
-                      ref={quantityInputRef}
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
-                      value={quantityInput}
-                      onChange={(event) => handleQuantityInputChange(event.target.value)}
-                    />
-                  </label>
-                </div>
-              <label className="text-sm font-medium text-foreground">
-                Total
-                <input
-                  type="number"
-                  min={0}
-                  className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
-                  value={totalInput}
-                  onChange={(event) => handleTotalInputChange(event.target.value)}
-                />
-              </label>
+            <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
+              <div className="flex-1 space-y-4">
+                <label className="text-sm font-medium text-foreground">
+                  Prix unitaire
+                  <input
+                    ref={priceInputRef}
+                    type="number"
+                    min={0}
+                    className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
+                    value={priceInput}
+                    onFocus={() => setPricePanelFocus("price")}
+                    onChange={(event) => handlePriceInputChange(event.target.value)}
+                    onSelect={handlePriceSelection}
+                    onKeyUp={handlePriceSelection}
+                    onMouseUp={handlePriceSelection}
+                  />
+                </label>
+                <label className="text-sm font-medium text-foreground">
+                  Quantité
+                  <input
+                    ref={quantityInputRef}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
+                    value={quantityInput}
+                    onFocus={() => setPricePanelFocus("quantity")}
+                    onChange={(event) => handleQuantityInputChange(event.target.value)}
+                    onSelect={handleQuantitySelection}
+                    onKeyUp={handleQuantitySelection}
+                    onMouseUp={handleQuantitySelection}
+                  />
+                </label>
+                <label className="text-sm font-medium text-foreground">
+                  Total
+                  <input
+                    ref={totalInputRef}
+                    type="number"
+                    min={0}
+                    className="mt-1 w-full rounded-xl border border-strong bg-background px-3 py-2 text-sm text-foreground"
+                    value={totalInput}
+                    onFocus={() => setPricePanelFocus("total")}
+                    onChange={(event) => handleTotalInputChange(event.target.value)}
+                    onSelect={handleTotalSelection}
+                    onKeyUp={handleTotalSelection}
+                    onMouseUp={handleTotalSelection}
+                  />
+                </label>
+              </div>
+              <div className="w-full max-w-[220px] space-y-2 rounded-2xl border border-strong bg-background/80 p-4">
+                <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                  Pavé numérique
+                </p>
+                {keypadRows.map((row) => (
+                  <div key={`modal-keypad-${row.join("-")}`} className="grid grid-cols-3 gap-2">
+                    {row.map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className="rounded-xl border border-strong bg-panel-soft py-3 text-sm font-semibold shadow-inner transition hover:bg-panel"
+                        onClick={() => handleKeypadInput(key)}
+                      >
+                        {key}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={handleClosePricePanel}>

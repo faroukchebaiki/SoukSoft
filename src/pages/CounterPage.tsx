@@ -1136,13 +1136,16 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                 return (
                   <div
                     key={`basket-slot-${basket.id}`}
-                    className={`flex min-h-[240px] flex-col rounded-[1.75rem] border border-strong bg-background text-foreground shadow-lg transition ${
+                    className={`flex min-h-[260px] flex-col rounded-[1.75rem] border border-strong bg-background text-foreground shadow-lg transition ${
                       index === activeBasketIndex ? "ring-2 ring-emerald-500" : ""
                     }`}
-                    >
+                  >
                     <div className="flex items-center justify-between rounded-t-[1.75rem] border-b border-strong bg-foreground/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-background">
                       <span>Panier {index + 1}</span>
-                      <span>{basket.items.length} article(s)</span>
+                      <span className="flex items-center gap-3">
+                        <span>{basket.items.length} article(s)</span>
+                        <span className="text-sm font-semibold">{formatCurrency(basketTotal)}</span>
+                      </span>
                     </div>
                     <div className="grid flex-1 grid-cols-[2fr_1fr] gap-2 p-4 text-[11px]">
                       <div className="max-h-48 overflow-auto rounded-2xl border border-dashed border-strong bg-panel-soft">
@@ -1150,22 +1153,29 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                           <table className="w-full text-[11px]">
                             <thead className="sticky top-0 bg-panel text-[10px] uppercase text-muted-foreground">
                               <tr>
-                                <th className="px-3 py-2 text-left font-medium">Produit</th>
+                                <th className="px-3 py-2 text-left font-medium">N°</th>
+                                <th className="px-3 py-2 text-left font-medium">Désignation</th>
+                                <th className="px-3 py-2 text-right font-medium">Prix U</th>
                                 <th className="px-3 py-2 text-right font-medium">Qté</th>
+                                <th className="px-3 py-2 text-right font-medium">Totale</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {previewItems.map((item) => (
-                                <tr key={`${basket.id}-${item.id}`} className="border-b border-dashed border-border text-foreground">
-                                  <td className="px-3 py-1">
-                                    <p className="font-semibold">{item.name}</p>
-                                    <p className="text-[10px] text-muted-foreground">{item.sku}</p>
-                                  </td>
-                                  <td className="px-3 py-1 text-right font-medium">
-                                    {formatQuantity(item.qty, item.unit)}
-                                  </td>
-                                </tr>
-                              ))}
+                              {previewItems.map((item, idx) => {
+                                const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
+                                return (
+                                  <tr key={`${basket.id}-${item.id}`} className="border-b border-dashed border-border text-foreground">
+                                    <td className="px-3 py-1 font-semibold">{idx + 1}</td>
+                                    <td className="px-3 py-1">
+                                      <p className="font-semibold">{item.name}</p>
+                                      <p className="text-[10px] text-muted-foreground">{item.sku}</p>
+                                    </td>
+                                    <td className="px-3 py-1 text-right">{formatCurrency(item.price)}</td>
+                                    <td className="px-3 py-1 text-right">{formatQuantity(item.qty, item.unit)}</td>
+                                    <td className="px-3 py-1 text-right font-semibold">{formatCurrency(lineTotal)}</td>
+                                  </tr>
+                                );
+                              })}
                               {basket.items.length > previewItems.length ? (
                                 <tr>
                                   <td className="px-3 py-1 text-[10px] text-muted-foreground" colSpan={2}>

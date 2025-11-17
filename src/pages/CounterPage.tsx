@@ -656,6 +656,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const isBasketEmpty = basketItems.length === 0;
   const holdCount = Math.min(HOLD_SLOT_COUNT, Math.max(0, baskets.length - 1));
   const canNavigateBaskets = baskets.length > 1;
+  const canCreateBasket = baskets.length < MAX_BASKETS;
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -808,9 +809,9 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
               <span className="text-[10px]">ESC</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400"
+              className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400 disabled:opacity-50"
               onClick={handleAddBasket}
-              disabled={baskets.length >= MAX_BASKETS}
+              disabled={!canCreateBasket}
             >
               <Plus className="h-4 w-4" />
               Nouv. panier

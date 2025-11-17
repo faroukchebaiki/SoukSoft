@@ -55,11 +55,9 @@ const toolbarActions = [
 ];
 
 const topTabs = [
-  { label: "Les chambres" },
   { label: "Favoris", icon: Star },
   { label: "Stock" },
-  { label: "Factures des ventes" },
-  { label: "Tous les produits vendus" },
+  { label: "Historique", icon: ClipboardList },
 ];
 
 const favoriteButtons = [

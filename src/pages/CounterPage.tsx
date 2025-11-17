@@ -787,10 +787,10 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                     key={tab.label}
                     type="button"
                     onClick={() => setActiveTab(tab.label)}
-                    className={`flex items-center gap-2 rounded-2xl px-3 py-1 border ${
+                    className={`flex items-center gap-2 rounded-2xl px-3 py-1 border transition-colors ${
                       isActive
-                        ? "border-emerald-500 bg-emerald-500/20 text-foreground shadow-lg"
-                        : "border-transparent text-muted-foreground hover:border-strong hover:text-foreground/80"
+                        ? "border-emerald-500 bg-emerald-500/20 text-foreground shadow-lg hover:bg-emerald-500/30"
+                        : "border-transparent text-muted-foreground hover:border-strong hover:bg-background hover:text-foreground/80"
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" />

@@ -136,12 +136,20 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const priceSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const quantitySelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const totalSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
+  const basketsRef = useRef<PendingBasket[]>(baskets);
+  useEffect(() => {
+    basketsRef.current = baskets;
+  }, [baskets]);
 
   const activeBasket = baskets[activeBasketIndex] ?? baskets[0];
   const activeBasketId = activeBasket?.id ?? "";
   const basketItems = activeBasket?.items ?? [];
   const holdBasketEntries = useMemo(
-    () => baskets.map((basket, index) => ({ basket, index })).filter(({ index }) => index !== activeBasketIndex),
+    () =>
+      baskets
+        .map((basket, index) => ({ basket, index }))
+        .filter(({ index }) => index !== activeBasketIndex)
+        .slice(0, HOLD_SLOT_COUNT),
     [baskets, activeBasketIndex],
   );
 
@@ -160,13 +168,13 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     [activeBasketIndex],
   );
 
-  const handleSelectBasket = useCallback(
-    (index: number) => {
-      if (index < 0 || index >= baskets.length) return;
-      setActiveBasketIndex(index);
-    },
-    [baskets.length],
-  );
+  const handleSelectBasket = useCallback((index: number) => {
+    setActiveBasketIndex((current) => {
+      const count = basketsRef.current.length;
+      if (index < 0 || index >= count) return current;
+      return index;
+    });
+  }, []);
 
   const handleResumeBasket = useCallback(
     (index: number) => {
@@ -189,17 +197,14 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     });
   }, []);
 
-  const cycleBasket = useCallback(
-    (direction: 1 | -1) => {
-      const count = baskets.length;
-      if (count <= 1) return;
-      setActiveBasketIndex((current) => {
-        const nextIndex = (current + direction + count) % count;
-        return nextIndex;
-      });
-    },
-    [baskets.length],
-  );
+  const cycleBasket = useCallback((direction: 1 | -1) => {
+    setActiveBasketIndex((current) => {
+      const count = basketsRef.current.length;
+      if (count <= 1) return current;
+      const nextIndex = (current + direction + count) % count;
+      return nextIndex;
+    });
+  }, []);
 
   const handlePriceSelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
     const target = event.currentTarget;
@@ -649,7 +654,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   }, [cycleBasket, focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
 
   const isBasketEmpty = basketItems.length === 0;
-  const holdCount = Math.max(0, baskets.length - 1);
+  const holdCount = Math.min(HOLD_SLOT_COUNT, Math.max(0, baskets.length - 1));
   const canNavigateBaskets = baskets.length > 1;
 
   return (

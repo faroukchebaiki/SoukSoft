@@ -371,21 +371,20 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     return `${value} DA`;
   }, [totals.total]);
 
-  const viewingHistoryEntry = useMemo(
+  const activeHistoryEntry = useMemo(
     () => historyBaskets.find((entry) => entry.id === selectedHistoryId) ?? null,
     [historyBaskets, selectedHistoryId],
   );
-
-  const displayedItems = viewingHistoryEntry?.items ?? basketItems;
-  const displayedArticles = displayedItems.length;
-  const displayedTotalValue = viewingHistoryEntry ? formatCurrency(viewingHistoryEntry.total) : totalDisplayValue;
-  const displayedDate = viewingHistoryEntry
-    ? new Date(viewingHistoryEntry.createdAt).toLocaleString("fr-DZ")
+  const displayedDate = activeHistoryEntry
+    ? new Date(activeHistoryEntry.createdAt).toLocaleString("fr-DZ")
     : new Date().toLocaleDateString("fr-DZ");
-  const displayedBasketLabel = viewingHistoryEntry
-    ? "Panier archivé"
+  const displayedBasketLabel = activeHistoryEntry
+    ? `Panier archivé`
     : `Panier ${activeBasketIndex + 1}/${Math.max(1, baskets.length)}`;
-  const isHistoryPreview = viewingHistoryEntry !== null;
+  const displayedItems = basketItems;
+  const displayedArticles = displayedItems.length;
+  const displayedTotalValue = totalDisplayValue;
+  const isHistoryPreview = activeHistoryEntry !== null;
 
   useEffect(() => {
     if (!basketItems.length) return;
@@ -486,6 +485,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
+    setSelectedHistoryId(null);
   }, [focusScannerInput, updateActiveBasketItems]);
 
   const handleFinishBasket = useCallback(() => {
@@ -501,11 +501,25 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
       items: snapshotItems,
       total,
     };
-    setHistoryBaskets((prev) => [entry, ...prev]);
+    setHistoryBaskets((prev) => {
+      const filtered = selectedHistoryId ? prev.filter((hist) => hist.id !== selectedHistoryId) : prev;
+      return [entry, ...filtered];
+    });
+    setSelectedHistoryId(null);
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [basketItems, focusScannerInput, updateActiveBasketItems]);
+  }, [basketItems, focusScannerInput, selectedHistoryId, updateActiveBasketItems]);
+
+  const handleSelectHistoryEntry = useCallback(
+    (entry: BasketHistoryEntry) => {
+      setSelectedHistoryId(entry.id);
+      updateActiveBasketItems(() => entry.items.map((item) => ({ ...item })));
+      focusScannerInput();
+      setSelectedItemId(null);
+    },
+    [focusScannerInput, updateActiveBasketItems],
+  );
 
   const handlePrintReceipt = useCallback(() => {
     window.print();
@@ -905,7 +919,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                         <button
                           key={entry.id}
                           type="button"
-                          onClick={() => setSelectedHistoryId(entry.id)}
+                          onClick={() => handleSelectHistoryEntry(entry)}
                           className={`flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-[11px] transition ${
                             isSelected
                               ? "border-emerald-500 bg-emerald-500/10 text-foreground"

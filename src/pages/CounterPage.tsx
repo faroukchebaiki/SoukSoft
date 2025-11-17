@@ -788,7 +788,9 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                     type="button"
                     onClick={() => setActiveTab(tab.label)}
                     className={`flex items-center gap-2 rounded-2xl px-3 py-1 ${
-                      isActive ? "bg-background text-foreground shadow" : "text-muted-foreground"
+                      isActive
+                        ? "bg-background text-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground/80"
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" />

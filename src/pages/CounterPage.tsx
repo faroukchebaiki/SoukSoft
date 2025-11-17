@@ -502,7 +502,6 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
       total,
     };
     setHistoryBaskets((prev) => [entry, ...prev]);
-    setSelectedHistoryId(entry.id);
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);

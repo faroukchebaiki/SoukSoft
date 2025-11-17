@@ -94,6 +94,13 @@ interface PendingBasket {
   items: CartItem[];
 }
 
+interface BasketHistoryEntry {
+  id: string;
+  createdAt: string;
+  items: CartItem[];
+  total: number;
+}
+
 function createBasketId() {
   return crypto.randomUUID?.() ?? `basket-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -109,6 +116,8 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const [baskets, setBaskets] = useState<PendingBasket[]>(() => [createEmptyBasket()]);
   const [activeBasketIndex, setActiveBasketIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [historyBaskets, setHistoryBaskets] = useState<BasketHistoryEntry[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [scannerQty, setScannerQty] = useState(1);
@@ -327,20 +336,8 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     );
   }, [stockOverview]);
 
-  const historyEntries = useMemo(() => {
-    return availableProducts.slice(0, 8).map((product, index) => {
-      const qty = Math.max(1, Number(product.stockQty ?? 0));
-      const total = qty * Number(product.sellPrice ?? product.price);
-      return {
-        id: `hist-${product.id}-${index}`,
-        product: product.name,
-        sku: product.sku,
-        qty,
-        total,
-        date: new Date(Date.now() - index * 60 * 60 * 1000).toLocaleString("fr-DZ"),
-      };
-    });
-  }, [availableProducts]);
+  const historyEntries = useMemo(() => historyBaskets, [historyBaskets]);
+
 
   const totals = useMemo<CheckoutTotals>(() => {
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -373,6 +370,22 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     }).format(totals.total);
     return `${value} DA`;
   }, [totals.total]);
+
+  const viewingHistoryEntry = useMemo(
+    () => historyBaskets.find((entry) => entry.id === selectedHistoryId) ?? null,
+    [historyBaskets, selectedHistoryId],
+  );
+
+  const displayedItems = viewingHistoryEntry?.items ?? basketItems;
+  const displayedArticles = displayedItems.length;
+  const displayedTotalValue = viewingHistoryEntry ? formatCurrency(viewingHistoryEntry.total) : totalDisplayValue;
+  const displayedDate = viewingHistoryEntry
+    ? new Date(viewingHistoryEntry.createdAt).toLocaleString("fr-DZ")
+    : new Date().toLocaleDateString("fr-DZ");
+  const displayedBasketLabel = viewingHistoryEntry
+    ? "Panier archivé"
+    : `Panier ${activeBasketIndex + 1}/${Math.max(1, baskets.length)}`;
+  const isHistoryPreview = viewingHistoryEntry !== null;
 
   useEffect(() => {
     if (!basketItems.length) return;
@@ -476,10 +489,24 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   }, [focusScannerInput, updateActiveBasketItems]);
 
   const handleFinishBasket = useCallback(() => {
+    if (!basketItems.length) return;
+    const snapshotItems = basketItems.map((item) => ({ ...item }));
+    const total = snapshotItems.reduce(
+      (sum, item) => sum + item.qty * (item.sellPrice ?? item.price) - (item.discountValue ?? 0),
+      0,
+    );
+    const entry: BasketHistoryEntry = {
+      id: createBasketId(),
+      createdAt: new Date().toISOString(),
+      items: snapshotItems,
+      total,
+    };
+    setHistoryBaskets((prev) => [entry, ...prev]);
+    setSelectedHistoryId(entry.id);
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [focusScannerInput, updateActiveBasketItems]);
+  }, [basketItems, focusScannerInput, updateActiveBasketItems]);
 
   const handlePrintReceipt = useCallback(() => {
     window.print();
@@ -717,6 +744,8 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const isBasketEmpty = basketItems.length === 0;
   const holdCount = Math.min(HOLD_SLOT_COUNT, Math.max(0, baskets.length - 1));
   const canNavigateBaskets = baskets.length > 1;
+  const canCreateBasket = baskets.length < MAX_BASKETS;
+  const basketActionsDisabled = isHistoryPreview || isBasketEmpty;
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -860,42 +889,49 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
               </section>
             ) : activeTab === "Historique" ? (
               <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner">
-                <div className="mb-4 flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-                  <span>Historique récent</span>
-                  <span>{historyEntries.length} entrées</span>
+                <div className="mb-3 flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                  <span>Paniers validés</span>
+                  <span>{historyEntries.length} total</span>
                 </div>
-                <div className="overflow-auto rounded-2xl border border-strong bg-background">
-                  <table className="w-full text-[11px]">
-                    <thead className="sticky top-0 border-b border-strong bg-panel text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">Produit</th>
-                        <th className="px-3 py-2 text-right font-medium">Qté</th>
-                        <th className="px-3 py-2 text-right font-medium">Total</th>
-                        <th className="px-3 py-2 text-right font-medium">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyEntries.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
-                            Aucun mouvement récent.
-                          </td>
-                        </tr>
-                      ) : (
-                        historyEntries.map((entry) => (
-                          <tr key={entry.id} className="border-b border-dashed border-border">
-                            <td className="px-3 py-2">
-                              <p className="font-semibold">{entry.product}</p>
-                              <p className="text-[10px] text-muted-foreground">{entry.sku}</p>
-                            </td>
-                            <td className="px-3 py-2 text-right">{entry.qty}</td>
-                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(entry.total)}</td>
-                            <td className="px-3 py-2 text-right">{entry.date}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                <div className="space-y-3 overflow-auto">
+                  {historyEntries.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-strong bg-background px-4 py-8 text-center text-xs text-muted-foreground">
+                      Aucun panier validé aujourd&apos;hui.
+                    </div>
+                  ) : (
+                    historyEntries.map((entry, index) => {
+                      const entryDate = new Date(entry.createdAt);
+                      const isSelected = entry.id === selectedHistoryId;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => setSelectedHistoryId(entry.id)}
+                          className={`flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-[11px] transition ${
+                            isSelected
+                              ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                              : "border-strong bg-background text-muted-foreground hover:border-emerald-500 hover:text-foreground"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                            <span>Panier {historyEntries.length - index}</span>
+                            <span>Articles : {entry.items.length}</span>
+                            <span>{entryDate.toLocaleString("fr-DZ")}</span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-sm">
+                            <span className="font-semibold text-foreground">{formatCurrency(entry.total)}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {entry.items
+                                .slice(0, 2)
+                                .map((item) => item.name)
+                                .join(", ")}
+                              {entry.items.length > 2 ? ` +${entry.items.length - 2}` : ""}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </section>
             ) : (
@@ -964,7 +1000,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400"
               onClick={handleAddBasket}
-              disabled={baskets.length >= MAX_BASKETS}
+              disabled={!canCreateBasket}
             >
               <Plus className="h-4 w-4" />
               Nouv. panier
@@ -976,7 +1012,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400 disabled:opacity-60"
               onClick={handleCancelBasket}
-              disabled={isBasketEmpty}
+              disabled={basketActionsDisabled}
             >
               <RotateCcw className="h-4 w-4" />
               Annuler
@@ -985,7 +1021,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-amber-500 text-xs text-white hover:bg-amber-400 disabled:opacity-60"
               onClick={handleDeleteLastItem}
-              disabled={isBasketEmpty}
+              disabled={basketActionsDisabled}
             >
               <Trash2 className="h-4 w-4" />
               Suppr
@@ -994,7 +1030,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400 disabled:opacity-60"
               onClick={() => handleOpenPricePanel("price")}
-              disabled={isBasketEmpty}
+              disabled={basketActionsDisabled}
             >
               <Tag className="h-4 w-4" />
               Prix
@@ -1003,7 +1039,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400 disabled:opacity-60"
               onClick={() => handleOpenPricePanel("quantity")}
-              disabled={isBasketEmpty}
+              disabled={basketActionsDisabled}
             >
               <HandCoins className="h-4 w-4" />
               Qté
@@ -1012,7 +1048,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-600 text-xs text-white hover:bg-emerald-500 disabled:opacity-60"
               onClick={handleFinishBasket}
-              disabled={isBasketEmpty}
+              disabled={basketActionsDisabled}
             >
               <CheckCircle2 className="h-4 w-4" />
               Valider
@@ -1021,7 +1057,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-purple-500 text-xs text-white hover:bg-purple-400 disabled:opacity-60"
               onClick={handlePrintReceipt}
-              disabled={isBasketEmpty}
+              disabled={displayedItems.length === 0}
             >
               <Printer className="h-4 w-4" />
               Reçu
@@ -1031,14 +1067,17 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
             <div className="rounded-2xl border border-border bg-foreground/90 p-4 text-background">
               <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider opacity-80">
-                <span className="mr-auto">FirstLastName</span>
-                <span>Articles : {basketItems.length}</span>
-                <span>
-                  Panier {activeBasketIndex + 1}/{Math.max(1, baskets.length)}
-                </span>
-                <span>Date : {new Date().toLocaleDateString("fr-DZ")}</span>
+                <span className="mr-auto">{isHistoryPreview ? "Panier archivé" : "FirstLastName"}</span>
+                <span>Articles : {displayedArticles}</span>
+                <span>{displayedBasketLabel}</span>
+                <span>Date : {displayedDate}</span>
+                {isHistoryPreview ? (
+                  <Button size="sm" variant="secondary" onClick={() => setSelectedHistoryId(null)}>
+                    Revenir au panier actif
+                  </Button>
+                ) : null}
               </div>
-              <p className="mt-6 text-6xl font-semibold tracking-tight">{totalDisplayValue}</p>
+              <p className="mt-6 text-6xl font-semibold tracking-tight">{displayedTotalValue}</p>
             </div>
 
             <div className="mt-3 flex-1 overflow-hidden rounded-2xl border border-strong bg-background">
@@ -1053,30 +1092,36 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                       <th className="px-3 py-2 text-right font-medium">Totale</th>
                     </tr>
                   </thead>
-                  <tbody ref={basketTableBodyRef}>
-                    {basketItems.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                    <tbody ref={basketTableBodyRef}>
+                      {displayedItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
                           Ajoutez un article pour démarrer.
                         </td>
                       </tr>
-                    ) : (
-                      basketItems.map((item, index) => {
-                        const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
-                        return (
-                          <tr
-                            key={item.id}
-                            onClick={() =>
-                              setSelectedItemId((current) => (current === item.id ? null : item.id))
-                            }
-                            className={`cursor-pointer border-b border-dashed border-strong transition ${
-                              selectedItemId === item.id
-                                ? "bg-emerald-100/50 dark:bg-emerald-500/10"
-                                : index === 0
-                                  ? "bg-muted/40 hover:bg-muted/50"
-                                  : "hover:bg-muted/40"
-                            }`}
-                          >
+                      ) : (
+                        displayedItems.map((item, index) => {
+                          const lineTotal = item.price * item.qty - (item.discountValue ?? 0);
+                          const isSelected = !isHistoryPreview && selectedItemId === item.id;
+                          return (
+                            <tr
+                              key={item.id}
+                              onClick={
+                                isHistoryPreview
+                                  ? undefined
+                                  : () =>
+                                      setSelectedItemId((current) => (current === item.id ? null : item.id))
+                              }
+                              className={`${
+                                isHistoryPreview ? "cursor-default" : "cursor-pointer"
+                              } border-b border-dashed border-strong transition ${
+                                isSelected
+                                  ? "bg-emerald-100/50 dark:bg-emerald-500/10"
+                                  : index === 0
+                                    ? "bg-muted/40 hover:bg-muted/50"
+                                    : "hover:bg-muted/40"
+                              }`}
+                            >
                             <td className="px-3 py-2 font-semibold">{index + 1}</td>
                             <td className="px-3 py-2">{item.name}</td>
                             <td className="px-3 py-2 text-right">{formatCurrency(item.price)}</td>

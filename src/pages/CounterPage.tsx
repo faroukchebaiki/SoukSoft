@@ -627,7 +627,13 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           break;
         case "escape":
           event.preventDefault();
-          handleGoHome();
+          if (isBasketOverviewOpen) {
+            handleCloseBasketOverview();
+          } else if (isPricePanelOpen) {
+            handleClosePricePanel();
+          } else {
+            handleGoHome();
+          }
           break;
         case "f10":
           event.preventDefault();
@@ -651,7 +657,17 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cycleBasket, focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
+  }, [
+    cycleBasket,
+    focusScannerInput,
+    handleCancelBasket,
+    handleCloseBasketOverview,
+    handleClosePricePanel,
+    handleFinishBasket,
+    handleGoHome,
+    isBasketOverviewOpen,
+    isPricePanelOpen,
+  ]);
 
   const isBasketEmpty = basketItems.length === 0;
   const holdCount = Math.min(HOLD_SLOT_COUNT, Math.max(0, baskets.length - 1));

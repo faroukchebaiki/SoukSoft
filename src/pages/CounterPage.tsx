@@ -295,6 +295,53 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     });
   }, [availableProducts, productSearch, activeCategory]);
 
+  const stockOverview = useMemo(() => {
+    const categoryMap = new Map<string, { category: string; skuCount: number; totalQty: number; value: number }>();
+    for (const product of availableProducts) {
+      const entry =
+        categoryMap.get(product.category) ?? {
+          category: product.category,
+          skuCount: 0,
+          totalQty: 0,
+          value: 0,
+        };
+      entry.skuCount += 1;
+      const qty = Number(product.stockQty ?? 0);
+      entry.totalQty += qty;
+      const unitValue = Number(product.buyPrice ?? product.price);
+      entry.value += unitValue * qty;
+      categoryMap.set(product.category, entry);
+    }
+    return Array.from(categoryMap.values());
+  }, [availableProducts]);
+
+  const stockTotals = useMemo(() => {
+    return stockOverview.reduce(
+      (totals, entry) => {
+        totals.skuCount += entry.skuCount;
+        totals.totalQty += entry.totalQty;
+        totals.value += entry.value;
+        return totals;
+      },
+      { skuCount: 0, totalQty: 0, value: 0 },
+    );
+  }, [stockOverview]);
+
+  const historyEntries = useMemo(() => {
+    return availableProducts.slice(0, 8).map((product, index) => {
+      const qty = Math.max(1, Number(product.stockQty ?? 0));
+      const total = qty * Number(product.sellPrice ?? product.price);
+      return {
+        id: `hist-${product.id}-${index}`,
+        product: product.name,
+        sku: product.sku,
+        qty,
+        total,
+        date: new Date(Date.now() - index * 60 * 60 * 1000).toLocaleString("fr-DZ"),
+      };
+    });
+  }, [availableProducts]);
+
   const totals = useMemo<CheckoutTotals>(() => {
     const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const discounts = basketItems.reduce((sum, item) => sum + (item.discountValue ?? 0), 0);
@@ -762,52 +809,143 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           </div>
 
           <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
-            <aside className="flex w-48 flex-col rounded-2xl border border-strong bg-panel p-3 text-xs shadow-inner">
-              <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
-                Favoris
-              </p>
-              <div className="flex-1 space-y-2 overflow-auto">
-                {favoriteButtons.map((fav, index) => (
-                  <button
-                    key={fav.label}
-                    type="button"
-                    className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-wide ${fav.color} shadow-sm`}
-                    onClick={() => setActiveCategory(categories[index] ?? "all")}
-                  >
-                    <span>{fav.label}</span>
-                  </button>
-                ))}
-              </div>
-            </aside>
-
-            <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner min-h-0">
-              <div className="grid h-full grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-strong hover:shadow-lg"
-                    onClick={() => handleProductCardClick(product)}
-                  >
-                    <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
-                      Illustration
-                    </div>
-                    <div className="mt-3 space-y-1 text-muted-foreground">
-                      <p className="text-sm font-semibold text-foreground">{product.name}</p>
-                      <p className="text-xs">{product.sku}</p>
-                      <p className="text-[13px] font-semibold text-emerald-600">
-                        {formatCurrency(product.price)}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-                {filteredProducts.length === 0 ? (
-                  <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
-                    Aucun produit trouvé.
+            {activeTab === "Stock" ? (
+              <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner">
+                <div className="grid gap-3 text-[11px] sm:grid-cols-3">
+                  <div className="rounded-2xl border border-strong bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Catégories</p>
+                    <p className="text-2xl font-semibold">{stockOverview.length}</p>
                   </div>
-                ) : null}
-              </div>
-            </section>
+                  <div className="rounded-2xl border border-strong bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">SKUs suivis</p>
+                    <p className="text-2xl font-semibold">{stockTotals.skuCount}</p>
+                  </div>
+                  <div className="rounded-2xl border border-strong bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Valeur estimée</p>
+                    <p className="text-2xl font-semibold">{formatCurrency(stockTotals.value)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 overflow-auto rounded-2xl border border-strong bg-background">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 border-b border-strong bg-panel text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Catégorie</th>
+                        <th className="px-3 py-2 text-right font-medium">Produits</th>
+                        <th className="px-3 py-2 text-right font-medium">Stock total</th>
+                        <th className="px-3 py-2 text-right font-medium">Valeur</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stockOverview.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                            Aucune donnée de stock.
+                          </td>
+                        </tr>
+                      ) : (
+                        stockOverview.map((entry) => (
+                          <tr key={entry.category} className="border-b border-dashed border-border">
+                            <td className="px-3 py-2 font-semibold">{entry.category}</td>
+                            <td className="px-3 py-2 text-right">{entry.skuCount}</td>
+                            <td className="px-3 py-2 text-right">{entry.totalQty}</td>
+                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(entry.value)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : activeTab === "Historique" ? (
+              <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner">
+                <div className="mb-4 flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                  <span>Historique récent</span>
+                  <span>{historyEntries.length} entrées</span>
+                </div>
+                <div className="overflow-auto rounded-2xl border border-strong bg-background">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 border-b border-strong bg-panel text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Produit</th>
+                        <th className="px-3 py-2 text-right font-medium">Qté</th>
+                        <th className="px-3 py-2 text-right font-medium">Total</th>
+                        <th className="px-3 py-2 text-right font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyEntries.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                            Aucun mouvement récent.
+                          </td>
+                        </tr>
+                      ) : (
+                        historyEntries.map((entry) => (
+                          <tr key={entry.id} className="border-b border-dashed border-border">
+                            <td className="px-3 py-2">
+                              <p className="font-semibold">{entry.product}</p>
+                              <p className="text-[10px] text-muted-foreground">{entry.sku}</p>
+                            </td>
+                            <td className="px-3 py-2 text-right">{entry.qty}</td>
+                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(entry.total)}</td>
+                            <td className="px-3 py-2 text-right">{entry.date}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : (
+              <>
+                <aside className="flex w-48 flex-col rounded-2xl border border-strong bg-panel p-3 text-xs shadow-inner">
+                  <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
+                    Favoris
+                  </p>
+                  <div className="flex-1 space-y-2 overflow-auto">
+                    {favoriteButtons.map((fav, index) => (
+                      <button
+                        key={fav.label}
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-wide ${fav.color} shadow-sm`}
+                        onClick={() => setActiveCategory(categories[index] ?? "all")}
+                      >
+                        <span>{fav.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </aside>
+
+                <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner min-h-0">
+                  <div className="grid h-full grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {filteredProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-strong hover:shadow-lg"
+                        onClick={() => handleProductCardClick(product)}
+                      >
+                        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
+                          Illustration
+                        </div>
+                        <div className="mt-3 space-y-1 text-muted-foreground">
+                          <p className="text-sm font-semibold text-foreground">{product.name}</p>
+                          <p className="text-xs">{product.sku}</p>
+                          <p className="text-[13px] font-semibold text-emerald-600">
+                            {formatCurrency(product.price)}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredProducts.length === 0 ? (
+                      <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
+                        Aucun produit trouvé.
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+              </>
+            )}
           </div>
         </div>
 

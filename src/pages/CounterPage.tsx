@@ -1,4 +1,8 @@
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Barcode,
   Bell,
   Calculator,
@@ -8,6 +12,7 @@ import {
   FolderCog,
   HandCoins,
   Home,
+  LayoutGrid,
   PackagePlus,
   Plus,
   Printer,
@@ -82,6 +87,10 @@ const keypadRows = [
   ["←", "0", "C"],
 ];
 
+const MAX_BASKETS = 7;
+const HOLD_SLOT_COUNT = 6;
+const HOLD_SLOT_KEYS = ["hold-slot-a", "hold-slot-b", "hold-slot-c", "hold-slot-d", "hold-slot-e", "hold-slot-f"];
+
 interface PendingBasket {
   id: string;
   items: CartItem[];
@@ -117,6 +126,8 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const [totalInput, setTotalInput] = useState("");
   const [pricePanelFocus, setPricePanelFocus] = useState<"price" | "quantity" | "total">("price");
   const [priceModalItem, setPriceModalItem] = useState<CartItem | null>(null);
+  const [basketNotice, setBasketNotice] = useState<string | null>(null);
+  const [isBasketOverviewOpen, setBasketOverviewOpen] = useState(false);
   const scannerInputRef = useRef<HTMLInputElement>(null);
   const basketTableBodyRef = useRef<HTMLTableSectionElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -129,6 +140,10 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const activeBasket = baskets[activeBasketIndex] ?? baskets[0];
   const activeBasketId = activeBasket?.id ?? "";
   const basketItems = activeBasket?.items ?? [];
+  const holdBasketEntries = useMemo(
+    () => baskets.map((basket, index) => ({ basket, index })).filter(({ index }) => index !== activeBasketIndex),
+    [baskets, activeBasketIndex],
+  );
 
   const updateActiveBasketItems = useCallback(
     (updater: (items: CartItem[]) => CartItem[]) => {
@@ -153,10 +168,23 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     [baskets.length],
   );
 
+  const handleResumeBasket = useCallback(
+    (index: number) => {
+      handleSelectBasket(index);
+      setBasketOverviewOpen(false);
+    },
+    [handleSelectBasket],
+  );
+
   const handleAddBasket = useCallback(() => {
     setBaskets((prev) => {
+      if (prev.length >= MAX_BASKETS) {
+        setBasketNotice(`Limite de ${MAX_BASKETS} paniers atteinte.`);
+        return prev;
+      }
       const next = [...prev, createEmptyBasket()];
       setActiveBasketIndex(next.length - 1);
+      setBasketNotice(null);
       return next;
     });
   }, []);
@@ -459,6 +487,10 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     setPriceModalItem(null);
   }, [priceInput, quantityInput, priceModalItem, updateActiveBasketItems]);
 
+  const handleCloseBasketOverview = useCallback(() => {
+    setBasketOverviewOpen(false);
+  }, []);
+
   const handlePriceInputChange = (value: string) => {
     setPriceInput(value);
     const priceValue = Number(value) || 0;
@@ -617,6 +649,8 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   }, [cycleBasket, focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
 
   const isBasketEmpty = basketItems.length === 0;
+  const holdCount = Math.max(0, baskets.length - 1);
+  const canNavigateBaskets = baskets.length > 1;
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -771,11 +805,15 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400"
               onClick={handleAddBasket}
+              disabled={baskets.length >= MAX_BASKETS}
             >
               <Plus className="h-4 w-4" />
               Nouv. panier
               <span className="text-[10px]">2e client</span>
             </Button>
+            {basketNotice ? (
+              <p className="text-center text-[10px] font-medium text-red-500">{basketNotice}</p>
+            ) : null}
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400 disabled:opacity-60"
               onClick={handleCancelBasket}
@@ -997,31 +1035,142 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
               ) : null}
             </div>
 
-            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-3">
+            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-4">
+              <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                Navigation paniers
+              </p>
               <div className="grid grid-cols-3 gap-2">
-                {keypadRows.map((row) =>
-                  row.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className="rounded-xl border border-strong bg-background py-3 text-sm font-semibold shadow-inner"
-                  >
-                    {key}
-                  </button>
-                )),
-              )}
+                <div />
                 <button
                   type="button"
-                  className="col-span-3 rounded-xl border border-emerald-500 bg-emerald-500 py-3 text-sm font-semibold text-white shadow-inner"
-                  onClick={handleFinishBasket}
+                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                  onClick={() => cycleBasket(-1)}
+                  disabled={!canNavigateBaskets}
+                  aria-label="Panier précédent"
                 >
-                  Valider
+                  <ArrowUp className="h-5 w-5" />
                 </button>
+                <div />
+                <button
+                  type="button"
+                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                  onClick={() => cycleBasket(-1)}
+                  disabled={!canNavigateBaskets}
+                  aria-label="Panier précédent"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  className="flex h-20 flex-col items-center justify-center rounded-2xl border border-emerald-500 bg-emerald-500 text-xs font-semibold uppercase tracking-wide text-white shadow-inner transition hover:bg-emerald-400"
+                  onClick={() => setBasketOverviewOpen(true)}
+                >
+                  <LayoutGrid className="h-5 w-5" />
+                  Voir paniers
+                  <span className="text-[9px] opacity-80">{holdCount} en attente</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                  onClick={() => cycleBasket(1)}
+                  disabled={!canNavigateBaskets}
+                  aria-label="Panier suivant"
+                >
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+                <div />
+                <button
+                  type="button"
+                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                  onClick={() => cycleBasket(1)}
+                  disabled={!canNavigateBaskets}
+                  aria-label="Panier suivant"
+                >
+                  <ArrowDown className="h-5 w-5" />
+                </button>
+                <div />
               </div>
             </div>
           </div>
         </aside>
       </div>
+      {isBasketOverviewOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-4">
+          <div className="w-full max-w-5xl rounded-[2rem] border border-strong bg-panel p-6 text-foreground shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Paniers en attente</p>
+                <p className="text-2xl font-semibold">
+                  {holdCount} sur {HOLD_SLOT_COUNT}
+                </p>
+              </div>
+              <Button variant="outline" onClick={handleCloseBasketOverview}>
+                Fermer
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {HOLD_SLOT_KEYS.map((slotKey, slotIndex) => {
+                const entry = holdBasketEntries[slotIndex];
+                if (!entry) {
+                  return (
+                    <div
+                      key={slotKey}
+                      className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-strong bg-panel-soft p-4 text-center text-xs text-muted-foreground"
+                    >
+                      <p>Emplacement libre</p>
+                      <p>Ajoutez un panier pour l&apos;occuper.</p>
+                    </div>
+                  );
+                }
+                const { basket, index } = entry;
+                const basketTotal = basket.items.reduce(
+                  (sum, item) => sum + item.price * item.qty - (item.discountValue ?? 0),
+                  0,
+                );
+                const previewItems = basket.items.slice(0, 4);
+                return (
+                  <div
+                    key={`basket-slot-${basket.id}`}
+                    className="flex min-h-[180px] flex-col rounded-2xl border border-strong bg-panel-soft p-4"
+                  >
+                    <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span>Panier {index + 1}</span>
+                      <span>{basket.items.length} article(s)</span>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-foreground">
+                      {formatCurrency(basketTotal)}
+                    </p>
+                    <div className="mt-2 flex-1">
+                      {previewItems.length ? (
+                        <ul className="space-y-1 text-[11px]">
+                          {previewItems.map((item) => (
+                            <li key={`${basket.id}-${item.id}`} className="flex justify-between gap-2">
+                              <span className="truncate font-medium text-foreground">{item.name}</span>
+                              <span className="text-muted-foreground">
+                                {formatQuantity(item.qty, item.unit)}
+                              </span>
+                            </li>
+                          ))}
+                          {basket.items.length > previewItems.length ? (
+                            <li className="text-[10px] text-muted-foreground">
+                              +{basket.items.length - previewItems.length} article(s)
+                            </li>
+                          ) : null}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">Aucun article dans ce panier.</p>
+                      )}
+                    </div>
+                    <Button size="sm" className="mt-3" onClick={() => handleResumeBasket(index)}>
+                      Reprendre ce panier
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isPricePanelOpen && priceModalItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <form

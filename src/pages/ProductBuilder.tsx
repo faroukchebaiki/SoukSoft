@@ -440,6 +440,13 @@ export function ProductBuilder() {
 
   const loadDraftOrEmpty = () => readDraftForm() ?? emptyForm;
 
+  const parseNumberInput = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
   const handleFormChange = (key: keyof ProductFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -461,8 +468,10 @@ export function ProductBuilder() {
 
   const handleSaveProduct = (closeAfterSave: boolean) => {
     if (!form.name || !form.sku || !form.barcode) return;
-    const buyPriceValue = Number(form.buyPrice) || 0;
-    const sellPriceValue = Number(form.sellPrice) || 0;
+    const buyPriceValue = parseNumberInput(form.buyPrice);
+    const sellPriceValue = parseNumberInput(form.sellPrice) ?? 0;
+    const stockQtyValue = parseNumberInput(form.stockQty) ?? 0;
+    const minQtyValue = parseNumberInput(form.minQty);
     const existingProduct = editingId
       ? products.find((product) => product.id === editingId)
       : undefined;
@@ -476,8 +485,8 @@ export function ProductBuilder() {
       price: sellPriceValue,
       sellPrice: sellPriceValue,
       buyPrice: buyPriceValue,
-      stockQty: Number(form.stockQty) || 0,
-      minQty: Number(form.minQty) || undefined,
+      stockQty: stockQtyValue,
+      minQty: minQtyValue,
       expirationDate: form.expirationDate || undefined,
       imageData: form.imageData || undefined,
     };

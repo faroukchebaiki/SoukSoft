@@ -1147,9 +1147,9 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                       <span>{basket.items.length} article(s)</span>
                       <span className="ml-auto text-sm font-semibold">{formatCurrency(basketTotal)}</span>
                     </div>
-                    <div className="flex-1 overflow-hidden rounded-b-[1.75rem] p-4">
+                    <div className="flex-1 overflow-hidden rounded-b-[1.75rem]">
                       {previewItems.length ? (
-                        <div className="max-h-48 overflow-auto rounded-2xl border border-dashed border-strong bg-panel-soft">
+                        <div className="max-h-48 overflow-auto border-t border-strong bg-background">
                           <table className="w-full text-[11px]">
                             <thead className="sticky top-0 bg-panel text-[10px] uppercase text-muted-foreground">
                               <tr>

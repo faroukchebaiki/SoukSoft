@@ -789,7 +789,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                     onClick={() => setActiveTab(tab.label)}
                     className={`flex items-center gap-2 rounded-2xl px-3 py-1 border ${
                       isActive
-                        ? "border-emerald-500 bg-background text-foreground shadow-lg"
+                        ? "border-emerald-500 bg-emerald-500/20 text-foreground shadow-lg"
                         : "border-transparent text-muted-foreground hover:border-strong hover:text-foreground/80"
                     }`}
                   >

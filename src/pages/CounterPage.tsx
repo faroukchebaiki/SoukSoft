@@ -82,8 +82,25 @@ const keypadRows = [
   ["←", "0", "C"],
 ];
 
+interface PendingBasket {
+  id: string;
+  items: CartItem[];
+}
+
+function createBasketId() {
+  return crypto.randomUUID?.() ?? `basket-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createEmptyBasket(): PendingBasket {
+  return {
+    id: createBasketId(),
+    items: [],
+  };
+}
+
 export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
-  const [basketItems, setBasketItems] = useState<CartItem[]>([]);
+  const [baskets, setBaskets] = useState<PendingBasket[]>(() => [createEmptyBasket()]);
+  const [activeBasketIndex, setActiveBasketIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
@@ -108,6 +125,53 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const priceSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const quantitySelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const totalSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
+
+  const activeBasket = baskets[activeBasketIndex] ?? baskets[0];
+  const activeBasketId = activeBasket?.id ?? "";
+  const basketItems = activeBasket?.items ?? [];
+
+  const updateActiveBasketItems = useCallback(
+    (updater: (items: CartItem[]) => CartItem[]) => {
+      setBaskets((prev) => {
+        if (!prev.length) return prev;
+        const index = Math.min(activeBasketIndex, prev.length - 1);
+        const target = prev[index];
+        if (!target) return prev;
+        const next = [...prev];
+        next[index] = { ...target, items: updater(target.items) };
+        return next;
+      });
+    },
+    [activeBasketIndex],
+  );
+
+  const handleSelectBasket = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= baskets.length) return;
+      setActiveBasketIndex(index);
+    },
+    [baskets.length],
+  );
+
+  const handleAddBasket = useCallback(() => {
+    setBaskets((prev) => {
+      const next = [...prev, createEmptyBasket()];
+      setActiveBasketIndex(next.length - 1);
+      return next;
+    });
+  }, []);
+
+  const cycleBasket = useCallback(
+    (direction: 1 | -1) => {
+      const count = baskets.length;
+      if (count <= 1) return;
+      setActiveBasketIndex((current) => {
+        const nextIndex = (current + direction + count) % count;
+        return nextIndex;
+      });
+    },
+    [baskets.length],
+  );
 
   const handlePriceSelection = useCallback((event: SyntheticEvent<HTMLInputElement>) => {
     const target = event.currentTarget;
@@ -242,6 +306,12 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     scannerInputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!activeBasketId) return;
+    setSelectedItemId(null);
+    focusScannerInput();
+  }, [activeBasketId, focusScannerInput]);
+
   const handleGoHome = useCallback(() => {
     if (onGoHome) {
       onGoHome();
@@ -253,7 +323,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const upsertItem = useCallback(
     (product: CatalogProduct, quantity: number) => {
       if (Number.isNaN(quantity) || quantity <= 0) return;
-      setBasketItems((items) => {
+      updateActiveBasketItems((items) => {
         const existingIndex = items.findIndex((entry) => entry.sku === product.sku);
         if (existingIndex >= 0) {
           const updated = [...items];
@@ -283,7 +353,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
         ];
       });
     },
-    [],
+    [updateActiveBasketItems],
   );
 
   const handleScanSubmit = useCallback(
@@ -322,23 +392,23 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   );
 
   const handleCancelBasket = useCallback(() => {
-    setBasketItems([]);
+    updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [focusScannerInput]);
+  }, [focusScannerInput, updateActiveBasketItems]);
 
   const handleFinishBasket = useCallback(() => {
-    setBasketItems([]);
+    updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [focusScannerInput]);
+  }, [focusScannerInput, updateActiveBasketItems]);
 
   const handlePrintReceipt = useCallback(() => {
     window.print();
   }, []);
 
   const handleDeleteLastItem = useCallback(() => {
-    setBasketItems((prev) => {
+    updateActiveBasketItems((prev) => {
       if (prev.length === 0) return prev;
       if (selectedItemId) {
         const exists = prev.some((item) => item.id === selectedItemId);
@@ -350,7 +420,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
       }
       return prev.slice(0, -1);
     });
-  }, [selectedItemId]);
+  }, [selectedItemId, updateActiveBasketItems]);
 
   const handleOpenPricePanel = useCallback(
     (focusField: "price" | "quantity" = "price") => {
@@ -380,14 +450,14 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     const nextQty = Number(quantityInput);
     if (!Number.isFinite(nextPrice) || nextPrice <= 0) return;
     if (!Number.isFinite(nextQty) || nextQty <= 0) return;
-    setBasketItems((prev) =>
+    updateActiveBasketItems((prev) =>
       prev.map((item) =>
         item.id === priceModalItem.id ? { ...item, price: nextPrice, qty: nextQty } : item,
       ),
     );
     setIsPricePanelOpen(false);
     setPriceModalItem(null);
-  }, [priceInput, quantityInput, priceModalItem]);
+  }, [priceInput, quantityInput, priceModalItem, updateActiveBasketItems]);
 
   const handlePriceInputChange = (value: string) => {
     setPriceInput(value);
@@ -530,13 +600,21 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           event.preventDefault();
           handleFinishBasket();
           break;
+        case "arrowup":
+          event.preventDefault();
+          cycleBasket(-1);
+          break;
+        case "arrowdown":
+          event.preventDefault();
+          cycleBasket(1);
+          break;
         default:
           break;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
+  }, [cycleBasket, focusScannerInput, handleCancelBasket, handleFinishBasket, handleGoHome]);
 
   const isBasketEmpty = basketItems.length === 0;
 
@@ -691,6 +769,14 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
               <span className="text-[10px]">ESC</span>
             </Button>
             <Button
+              className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400"
+              onClick={handleAddBasket}
+            >
+              <Plus className="h-4 w-4" />
+              Nouv. panier
+              <span className="text-[10px]">2e client</span>
+            </Button>
+            <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400 disabled:opacity-60"
               onClick={handleCancelBasket}
               disabled={isBasketEmpty}
@@ -746,10 +832,46 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           </div>
 
           <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-3 py-2 text-[11px] shadow-inner">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
+                Paniers
+              </span>
+              <div className="flex flex-1 flex-wrap gap-2">
+                {baskets.map((basket, index) => {
+                  const isActive = index === activeBasketIndex;
+                  const count = basket.items.length;
+                  return (
+                    <button
+                      key={basket.id}
+                      type="button"
+                      onClick={() => handleSelectBasket(index)}
+                      className={`rounded-2xl px-3 py-1 font-semibold transition ${
+                        isActive
+                          ? "bg-foreground text-background shadow"
+                          : "bg-background text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Panier {index + 1}
+                      {count > 0 ? (
+                        <span className="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-[10px]">
+                          {count}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {baskets.length > 1 ? (
+                <span className="text-[10px] text-muted-foreground">UP/DOWN</span>
+              ) : null}
+            </div>
             <div className="rounded-2xl border border-border bg-foreground/90 p-4 text-background">
-              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider opacity-80">
-                <span>FirstLastName</span>
-                <span>Bon : {basketItems.length}</span>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider opacity-80">
+                <span className="mr-auto">FirstLastName</span>
+                <span>Articles : {basketItems.length}</span>
+                <span>
+                  Panier {activeBasketIndex + 1}/{Math.max(1, baskets.length)}
+                </span>
                 <span>Date : {new Date().toLocaleDateString("fr-DZ")}</span>
               </div>
               <p className="mt-6 text-6xl font-semibold tracking-tight">{totalDisplayValue}</p>

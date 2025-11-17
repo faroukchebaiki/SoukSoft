@@ -891,36 +891,6 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           </div>
 
           <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-3 py-2 text-[11px] shadow-inner">
-              <div className="flex flex-1 flex-wrap gap-2">
-                {baskets.map((basket, index) => {
-                  const isActive = index === activeBasketIndex;
-                  const count = basket.items.length;
-                  return (
-                    <button
-                      key={basket.id}
-                      type="button"
-                      onClick={() => handleSelectBasket(index)}
-                      className={`rounded-2xl px-3 py-1 font-semibold transition ${
-                        isActive
-                          ? "bg-foreground text-background shadow"
-                          : "bg-background text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Panier {index + 1}
-                      {count > 0 ? (
-                        <span className="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-[10px]">
-                          {count}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-              {baskets.length > 1 ? (
-                <span className="text-[10px] text-muted-foreground">UP/DOWN</span>
-              ) : null}
-            </div>
             <div className="rounded-2xl border border-border bg-foreground/90 p-4 text-background">
               <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider opacity-80">
                 <span className="mr-auto">FirstLastName</span>

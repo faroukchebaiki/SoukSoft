@@ -656,7 +656,6 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
   const isBasketEmpty = basketItems.length === 0;
   const holdCount = Math.min(HOLD_SLOT_COUNT, Math.max(0, baskets.length - 1));
   const canNavigateBaskets = baskets.length > 1;
-  const canCreateBasket = baskets.length < MAX_BASKETS;
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -809,9 +808,9 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
               <span className="text-[10px]">ESC</span>
             </Button>
             <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400 disabled:opacity-50"
+              className="flex-1 flex-col gap-1 rounded-2xl bg-indigo-500 text-xs text-white hover:bg-indigo-400"
               onClick={handleAddBasket}
-              disabled={!canCreateBasket}
+              disabled={baskets.length >= MAX_BASKETS}
             >
               <Plus className="h-4 w-4" />
               Nouv. panier
@@ -1114,17 +1113,17 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                 Fermer
               </Button>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {HOLD_SLOT_KEYS.map((slotKey, slotIndex) => {
-                const entry = holdBasketEntries[slotIndex];
-                if (!entry) {
-                  return (
-                    <div
-                      key={slotKey}
-                      className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-strong bg-panel-soft p-4 text-center text-xs text-muted-foreground"
-                    >
-                      <p>Emplacement libre</p>
-                      <p>Ajoutez un panier pour l&apos;occuper.</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {HOLD_SLOT_KEYS.map((slotKey, slotIndex) => {
+                  const entry = holdBasketEntries[slotIndex];
+                  if (!entry) {
+                    return (
+                      <div
+                        key={slotKey}
+                        className="flex min-h-[240px] flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-strong bg-panel-soft p-6 text-center text-xs text-muted-foreground shadow-inner"
+                      >
+                        <p>Emplacement libre</p>
+                        <p>Ajoutez un panier pour l&apos;occuper.</p>
                     </div>
                   );
                 }
@@ -1133,43 +1132,69 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
                   (sum, item) => sum + item.price * item.qty - (item.discountValue ?? 0),
                   0,
                 );
-                const previewItems = basket.items.slice(0, 4);
+                const previewItems = basket.items.slice(0, 6);
                 return (
                   <div
                     key={`basket-slot-${basket.id}`}
-                    className="flex min-h-[180px] flex-col rounded-2xl border border-strong bg-panel-soft p-4"
-                  >
-                    <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    className={`flex min-h-[240px] flex-col rounded-[1.75rem] border border-strong bg-background text-foreground shadow-lg transition ${
+                      index === activeBasketIndex ? "ring-2 ring-emerald-500" : ""
+                    }`}
+                    >
+                    <div className="flex items-center justify-between rounded-t-[1.75rem] border-b border-strong bg-foreground/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-background">
                       <span>Panier {index + 1}</span>
                       <span>{basket.items.length} article(s)</span>
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-foreground">
-                      {formatCurrency(basketTotal)}
-                    </p>
-                    <div className="mt-2 flex-1">
-                      {previewItems.length ? (
-                        <ul className="space-y-1 text-[11px]">
-                          {previewItems.map((item) => (
-                            <li key={`${basket.id}-${item.id}`} className="flex justify-between gap-2">
-                              <span className="truncate font-medium text-foreground">{item.name}</span>
-                              <span className="text-muted-foreground">
-                                {formatQuantity(item.qty, item.unit)}
-                              </span>
-                            </li>
-                          ))}
-                          {basket.items.length > previewItems.length ? (
-                            <li className="text-[10px] text-muted-foreground">
-                              +{basket.items.length - previewItems.length} article(s)
-                            </li>
-                          ) : null}
-                        </ul>
-                      ) : (
-                        <p className="text-[11px] text-muted-foreground">Aucun article dans ce panier.</p>
-                      )}
+                    <div className="grid flex-1 grid-cols-[2fr_1fr] gap-2 p-4 text-[11px]">
+                      <div className="max-h-48 overflow-auto rounded-2xl border border-dashed border-strong bg-panel-soft">
+                        {previewItems.length ? (
+                          <table className="w-full text-[11px]">
+                            <thead className="sticky top-0 bg-panel text-[10px] uppercase text-muted-foreground">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium">Produit</th>
+                                <th className="px-3 py-2 text-right font-medium">Qté</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {previewItems.map((item) => (
+                                <tr key={`${basket.id}-${item.id}`} className="border-b border-dashed border-border text-foreground">
+                                  <td className="px-3 py-1">
+                                    <p className="font-semibold">{item.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">{item.sku}</p>
+                                  </td>
+                                  <td className="px-3 py-1 text-right font-medium">
+                                    {formatQuantity(item.qty, item.unit)}
+                                  </td>
+                                </tr>
+                              ))}
+                              {basket.items.length > previewItems.length ? (
+                                <tr>
+                                  <td className="px-3 py-1 text-[10px] text-muted-foreground" colSpan={2}>
+                                    +{basket.items.length - previewItems.length} article(s)
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
+                            Aucun article dans ce panier.
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col justify-between rounded-2xl border border-strong bg-panel-soft p-3 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">Total</p>
+                          <p className="text-2xl font-bold text-emerald-600">{formatCurrency(basketTotal)}</p>
+                        </div>
+                        <div>
+                          <p>Articles</p>
+                          <p className="text-xl font-semibold text-foreground">{basket.items.length}</p>
+                        </div>
+                        <Button size="sm" className="mt-2 w-full" onClick={() => handleResumeBasket(index)}>
+                          Reprendre
+                        </Button>
+                      </div>
                     </div>
-                    <Button size="sm" className="mt-3" onClick={() => handleResumeBasket(index)}>
-                      Reprendre ce panier
-                    </Button>
                   </div>
                 );
               })}

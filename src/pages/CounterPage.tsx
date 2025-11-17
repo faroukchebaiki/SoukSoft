@@ -892,9 +892,6 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
 
           <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
             <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-3 py-2 text-[11px] shadow-inner">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
-                Paniers
-              </span>
               <div className="flex flex-1 flex-wrap gap-2">
                 {baskets.map((basket, index) => {
                   const isActive = index === activeBasketIndex;

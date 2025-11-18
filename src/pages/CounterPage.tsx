@@ -26,7 +26,6 @@ import {
 import {
   type FormEvent,
   type MutableRefObject,
-  type RefObject,
   type SyntheticEvent,
   useCallback,
   useEffect,
@@ -41,6 +40,7 @@ import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
 
 interface CounterPageProps {
   availableProducts: CatalogProduct[];
+  initialCartItems?: CartItem[];
   onGoHome?: () => void;
 }
 
@@ -105,15 +105,24 @@ function createBasketId() {
   return crypto.randomUUID?.() ?? `basket-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function createEmptyBasket(): PendingBasket {
+function createEmptyBasket(items: CartItem[] = []): PendingBasket {
   return {
     id: createBasketId(),
-    items: [],
+    items: items.map((item) => ({
+      ...item,
+      sellPrice: item.sellPrice ?? item.price,
+    })),
   };
 }
 
-export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
-  const [baskets, setBaskets] = useState<PendingBasket[]>(() => [createEmptyBasket()]);
+export function CounterPage({
+  availableProducts,
+  initialCartItems = [],
+  onGoHome,
+}: CounterPageProps) {
+  const [baskets, setBaskets] = useState<PendingBasket[]>(() => [
+    createEmptyBasket(initialCartItems),
+  ]);
   const [activeBasketIndex, setActiveBasketIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [historyBaskets, setHistoryBaskets] = useState<BasketHistoryEntry[]>([]);
@@ -427,6 +436,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
           }, 0);
           return updated;
         }
+        const unitPrice = product.sellPrice ?? product.price;
         return [
           ...items,
           {
@@ -436,7 +446,8 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
             sku: product.sku,
             unit: product.unit,
             qty: quantity,
-            price: product.price,
+            price: unitPrice,
+            sellPrice: unitPrice,
             category: product.category,
             imageData: product.imageData,
           },
@@ -570,7 +581,9 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     if (!Number.isFinite(nextQty) || nextQty <= 0) return;
     updateActiveBasketItems((prev) =>
       prev.map((item) =>
-        item.id === priceModalItem.id ? { ...item, price: nextPrice, qty: nextQty } : item,
+        item.id === priceModalItem.id
+          ? { ...item, price: nextPrice, sellPrice: nextPrice, qty: nextQty }
+          : item,
       ),
     );
     setIsPricePanelOpen(false);
@@ -616,7 +629,7 @@ export function CounterPage({ availableProducts, onGoHome }: CounterPageProps) {
     const applyInput = (
       current: string,
       changeHandler: (value: string) => void,
-      inputRef: RefObject<HTMLInputElement>,
+      inputRef: MutableRefObject<HTMLInputElement | null>,
       selectionRef: MutableRefObject<SelectionRange>,
     ) => {
       const target = inputRef.current;

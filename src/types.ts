@@ -23,6 +23,7 @@ export interface CartItem {
   unit: UnitType;
   qty: number;
   price: number;
+  sellPrice?: number;
   category: string;
   discountValue?: number;
   discountLabel?: string;

@@ -115,6 +115,38 @@ function createEmptyBasket(items: CartItem[] = []): PendingBasket {
   };
 }
 
+function calculateTotals(items: CartItem[]): CheckoutTotals {
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const discounts = items.reduce((sum, item) => sum + (item.discountValue ?? 0), 0);
+  const taxable = subtotal - discounts;
+  const vat = 0;
+  const total = taxable;
+  const produceWeight = items
+    .filter((item) => item.unit === "kg")
+    .reduce((sum, item) => sum + item.qty, 0);
+  const pieceCount = items
+    .filter((item) => item.unit === "pcs")
+    .reduce((sum, item) => sum + item.qty, 0);
+
+  return {
+    subtotal,
+    discounts,
+    vat,
+    total,
+    lines: items.length,
+    produceWeight,
+    pieceCount,
+  };
+}
+
+function formatTicketTotal(value: number) {
+  const formatted = new Intl.NumberFormat("en-DZ", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+  return `${formatted} DA`;
+}
+
 export function CounterPage({
   availableProducts,
   initialCartItems = [],
@@ -347,42 +379,15 @@ export function CounterPage({
 
   const historyEntries = useMemo(() => historyBaskets, [historyBaskets]);
 
-
-  const totals = useMemo<CheckoutTotals>(() => {
-    const subtotal = basketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const discounts = basketItems.reduce((sum, item) => sum + (item.discountValue ?? 0), 0);
-    const taxable = subtotal - discounts;
-    const vat = 0;
-    const total = taxable;
-    const produceWeight = basketItems
-      .filter((item) => item.unit === "kg")
-      .reduce((sum, item) => sum + item.qty, 0);
-    const pieceCount = basketItems
-      .filter((item) => item.unit === "pcs")
-      .reduce((sum, item) => sum + item.qty, 0);
-
-    return {
-      subtotal,
-      discounts,
-      vat,
-      total,
-      lines: basketItems.length,
-      produceWeight,
-      pieceCount,
-    };
-  }, [basketItems]);
-
-  const totalDisplayValue = useMemo(() => {
-    const value = new Intl.NumberFormat("en-DZ", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(totals.total);
-    return `${value} DA`;
-  }, [totals.total]);
+  const totals = useMemo<CheckoutTotals>(() => calculateTotals(basketItems), [basketItems]);
 
   const activeHistoryEntry = useMemo(
     () => historyBaskets.find((entry) => entry.id === selectedHistoryId) ?? null,
     [historyBaskets, selectedHistoryId],
+  );
+  const historyTotals = useMemo(
+    () => (activeHistoryEntry ? calculateTotals(activeHistoryEntry.items) : null),
+    [activeHistoryEntry],
   );
   const displayedDate = activeHistoryEntry
     ? new Date(activeHistoryEntry.createdAt).toLocaleString("fr-DZ")
@@ -390,9 +395,13 @@ export function CounterPage({
   const displayedBasketLabel = activeHistoryEntry
     ? `Panier archivé`
     : `Panier ${activeBasketIndex + 1}/${Math.max(1, baskets.length)}`;
-  const displayedItems = basketItems;
+  const displayedItems = activeHistoryEntry ? activeHistoryEntry.items : basketItems;
+  const displayedTotals = historyTotals ?? totals;
   const displayedArticles = displayedItems.length;
-  const displayedTotalValue = totalDisplayValue;
+  const displayedTotalValue = useMemo(
+    () => formatTicketTotal(displayedTotals.total),
+    [displayedTotals.total],
+  );
   const isHistoryPreview = activeHistoryEntry !== null;
 
   useEffect(() => {
@@ -500,12 +509,9 @@ export function CounterPage({
   }, [focusScannerInput, updateActiveBasketItems]);
 
   const handleFinishBasket = useCallback(() => {
-    if (!basketItems.length) return;
+    if (!basketItems.length || selectedHistoryId) return;
     const snapshotItems = basketItems.map((item) => ({ ...item }));
-    const total = snapshotItems.reduce(
-      (sum, item) => sum + item.qty * (item.sellPrice ?? item.price) - (item.discountValue ?? 0),
-      0,
-    );
+    const total = calculateTotals(snapshotItems).total;
     const entry: BasketHistoryEntry = {
       id: createBasketId(),
       createdAt: new Date().toISOString(),
@@ -525,11 +531,9 @@ export function CounterPage({
   const handleSelectHistoryEntry = useCallback(
     (entry: BasketHistoryEntry) => {
       setSelectedHistoryId(entry.id);
-      updateActiveBasketItems(() => entry.items.map((item) => ({ ...item })));
-      focusScannerInput();
       setSelectedItemId(null);
     },
-    [focusScannerInput, updateActiveBasketItems],
+    [],
   );
 
   const handlePrintReceipt = useCallback(() => {

@@ -4,7 +4,6 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_SECTION,
-  cartItems,
   navigation,
   purchaseHistory,
   settingsOptions,
@@ -273,9 +272,9 @@ export default function App() {
       case "Counter":
         return (
           <CounterPage
-            initialCartItems={cartItems}
             availableProducts={catalogData}
             onGoHome={() => setShowSectionGrid(true)}
+            cashierName={activeUser.name}
           />
         );
       case "All items":

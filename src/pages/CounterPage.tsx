@@ -27,6 +27,7 @@ import {
   type FormEvent,
   type MutableRefObject,
   type SyntheticEvent,
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -42,6 +43,7 @@ interface CounterPageProps {
   availableProducts: CatalogProduct[];
   initialCartItems?: CartItem[];
   onGoHome?: () => void;
+  cashierName?: string;
 }
 
 type SelectionRange = { start: number; end: number };
@@ -99,6 +101,7 @@ interface BasketHistoryEntry {
   createdAt: string;
   items: CartItem[];
   total: number;
+  clientName: string;
 }
 
 function createBasketId() {
@@ -151,6 +154,7 @@ export function CounterPage({
   availableProducts,
   initialCartItems = [],
   onGoHome,
+  cashierName = "FirstLastName",
 }: CounterPageProps) {
   const [baskets, setBaskets] = useState<PendingBasket[]>(() => [
     createEmptyBasket(initialCartItems),
@@ -159,6 +163,7 @@ export function CounterPage({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [historyBaskets, setHistoryBaskets] = useState<BasketHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState("Standard client");
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [scannerQty, setScannerQty] = useState(1);
@@ -173,6 +178,7 @@ export function CounterPage({
   const [quantityInput, setQuantityInput] = useState("");
   const [totalInput, setTotalInput] = useState("");
   const [pricePanelFocus, setPricePanelFocus] = useState<"price" | "quantity" | "total">("price");
+  const [showNavigationKeypad, setShowNavigationKeypad] = useState(false);
   const [priceModalItem, setPriceModalItem] = useState<CartItem | null>(null);
   const [basketNotice, setBasketNotice] = useState<string | null>(null);
   const [isBasketOverviewOpen, setBasketOverviewOpen] = useState(false);
@@ -390,7 +396,7 @@ export function CounterPage({
     [activeHistoryEntry],
   );
   const displayedDate = activeHistoryEntry
-    ? new Date(activeHistoryEntry.createdAt).toLocaleString("fr-DZ")
+    ? new Date(activeHistoryEntry.createdAt).toLocaleDateString("fr-DZ")
     : new Date().toLocaleDateString("fr-DZ");
   const displayedBasketLabel = activeHistoryEntry
     ? `Panier archivé`
@@ -398,11 +404,15 @@ export function CounterPage({
   const displayedItems = activeHistoryEntry ? activeHistoryEntry.items : basketItems;
   const displayedTotals = historyTotals ?? totals;
   const displayedArticles = displayedItems.length;
+  const displayedClientName = activeHistoryEntry?.clientName ?? selectedClient ?? "Standard client";
+  const displayedCashierName = cashierName || "FirstLastName";
   const displayedTotalValue = useMemo(
     () => formatTicketTotal(displayedTotals.total),
     [displayedTotals.total],
   );
   const isHistoryPreview = activeHistoryEntry !== null;
+  const basketPositionLabel = isHistoryPreview ? displayedBasketLabel : "Panier";
+  const basketPositionValue = isHistoryPreview ? "" : `${activeBasketIndex + 1}/${Math.max(1, baskets.length)}`;
 
   useEffect(() => {
     if (!basketItems.length) return;
@@ -502,11 +512,17 @@ export function CounterPage({
   );
 
   const handleCancelBasket = useCallback(() => {
+    if (selectedHistoryId) {
+      setSelectedHistoryId(null);
+      setSelectedItemId(null);
+      focusScannerInput();
+      return;
+    }
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
     setSelectedHistoryId(null);
-  }, [focusScannerInput, updateActiveBasketItems]);
+  }, [focusScannerInput, selectedHistoryId, updateActiveBasketItems]);
 
   const handleFinishBasket = useCallback(() => {
     if (!basketItems.length || selectedHistoryId) return;
@@ -517,6 +533,7 @@ export function CounterPage({
       createdAt: new Date().toISOString(),
       items: snapshotItems,
       total,
+      clientName: selectedClient || "Standard client",
     };
     setHistoryBaskets((prev) => {
       const filtered = selectedHistoryId ? prev.filter((hist) => hist.id !== selectedHistoryId) : prev;
@@ -526,7 +543,7 @@ export function CounterPage({
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [basketItems, focusScannerInput, selectedHistoryId, updateActiveBasketItems]);
+  }, [basketItems, focusScannerInput, selectedClient, selectedHistoryId, updateActiveBasketItems]);
 
   const handleSelectHistoryEntry = useCallback(
     (entry: BasketHistoryEntry) => {
@@ -627,6 +644,32 @@ export function CounterPage({
       handleConfirmPriceUpdate();
     },
     [handleConfirmPriceUpdate],
+  );
+
+  const handleNavigateHistory = useCallback(
+    (direction: 1 | -1) => {
+      if (historyEntries.length === 0) return;
+      const currentIndex = selectedHistoryId
+        ? historyEntries.findIndex((entry) => entry.id === selectedHistoryId)
+        : -1;
+      const delta = direction === -1 ? 1 : -1;
+      let nextIndex = currentIndex + delta;
+      if (nextIndex < 0) {
+        setSelectedHistoryId(null);
+        setSelectedItemId(null);
+        focusScannerInput();
+        return;
+      }
+      if (nextIndex >= historyEntries.length) {
+        nextIndex = historyEntries.length - 1;
+      }
+      const nextEntry = historyEntries[nextIndex];
+      if (nextEntry) {
+        setSelectedHistoryId(nextEntry.id);
+        setSelectedItemId(null);
+      }
+    },
+    [focusScannerInput, historyEntries, selectedHistoryId],
   );
 
   const handleKeypadInput = (key: string) => {
@@ -753,6 +796,14 @@ export function CounterPage({
           event.preventDefault();
           cycleBasket(1);
           break;
+        case "arrowleft":
+          event.preventDefault();
+          handleNavigateHistory(-1);
+          break;
+        case "arrowright":
+          event.preventDefault();
+          handleNavigateHistory(1);
+          break;
         default:
           break;
       }
@@ -766,6 +817,7 @@ export function CounterPage({
     handleCloseBasketOverview,
     handleClosePricePanel,
     handleFinishBasket,
+    handleNavigateHistory,
     handleGoHome,
     isBasketOverviewOpen,
     isPricePanelOpen,
@@ -776,6 +828,8 @@ export function CounterPage({
   const canNavigateBaskets = baskets.length > 1;
   const canCreateBasket = baskets.length < MAX_BASKETS;
   const basketActionsDisabled = isHistoryPreview || isBasketEmpty;
+  const cancelButtonDisabled = isHistoryPreview ? false : isBasketEmpty;
+  const canNavigateHistory = historyEntries.length > 0;
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -929,38 +983,48 @@ export function CounterPage({
                       Aucun panier validé aujourd&apos;hui.
                     </div>
                   ) : (
-                    historyEntries.map((entry, index) => {
+                    (() => {
+                      let lastDayLabel: string | null = null;
+                      return historyEntries.map((entry, index) => {
                       const entryDate = new Date(entry.createdAt);
                       const isSelected = entry.id === selectedHistoryId;
-                      return (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          onClick={() => handleSelectHistoryEntry(entry)}
-                          className={`flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-[11px] transition ${
-                            isSelected
-                              ? "border-emerald-500 bg-emerald-500/10 text-foreground"
-                              : "border-strong bg-background text-muted-foreground hover:border-emerald-500 hover:text-foreground"
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                            <span>Panier {historyEntries.length - index}</span>
-                            <span>Articles : {entry.items.length}</span>
-                            <span>{entryDate.toLocaleString("fr-DZ")}</span>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between text-sm">
-                            <span className="font-semibold text-foreground">{formatCurrency(entry.total)}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {entry.items
-                                .slice(0, 2)
-                                .map((item) => item.name)
-                                .join(", ")}
-                              {entry.items.length > 2 ? ` +${entry.items.length - 2}` : ""}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })
+                      const clientLabel = entry.clientName || "Standard client";
+                      const dayLabel = entryDate.toLocaleDateString("fr-DZ");
+                      const timeLabel = entryDate.toLocaleTimeString("fr-DZ", { hour12: false });
+                        const showDateDivider = dayLabel !== lastDayLabel;
+                        lastDayLabel = dayLabel;
+                        return (
+                          <Fragment key={entry.id}>
+                            {showDateDivider ? (
+                              <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                <div className="h-px flex-1 bg-strong" />
+                                <span className="text-[11px] font-semibold text-foreground">{dayLabel}</span>
+                                <div className="h-px flex-1 bg-strong" />
+                              </div>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => handleSelectHistoryEntry(entry)}
+                              className={`flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-[11px] transition ${
+                                isSelected
+                                  ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                                  : "border-strong bg-background text-muted-foreground hover:border-emerald-500 hover:text-foreground"
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+                                <span>Panier {historyEntries.length - index}</span>
+                                <span>Articles : {entry.items.length}</span>
+                                <span>Client : {clientLabel}</span>
+                                <span className="ml-auto text-foreground">{timeLabel}</span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-start text-sm">
+                                <span className="text-2xl font-bold text-foreground">{formatCurrency(entry.total)}</span>
+                              </div>
+                            </button>
+                          </Fragment>
+                        );
+                      });
+                    })()
                   )}
                 </div>
               </section>
@@ -1042,7 +1106,7 @@ export function CounterPage({
             <Button
               className="flex-1 flex-col gap-1 rounded-2xl bg-red-500 text-xs text-white hover:bg-red-400 disabled:opacity-60"
               onClick={handleCancelBasket}
-              disabled={basketActionsDisabled}
+              disabled={cancelButtonDisabled}
             >
               <RotateCcw className="h-4 w-4" />
               Annuler
@@ -1094,18 +1158,28 @@ export function CounterPage({
             </Button>
           </div>
 
-          <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
+              <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
             <div className="rounded-2xl border border-border bg-foreground/90 p-4 text-background">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider opacity-80">
-                <span className="mr-auto">{isHistoryPreview ? "Panier archivé" : "FirstLastName"}</span>
-                <span>Articles : {displayedArticles}</span>
-                <span>{displayedBasketLabel}</span>
-                <span>Date : {displayedDate}</span>
-                {isHistoryPreview ? (
-                  <Button size="sm" variant="secondary" onClick={() => setSelectedHistoryId(null)}>
-                    Revenir au panier actif
-                  </Button>
-                ) : null}
+              <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-wider opacity-80">
+                <span className="font-semibold text-foreground">Caissier : {displayedCashierName}</span>
+                <span className="ml-auto">Date : {displayedDate}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-wider opacity-80">
+                <span>
+                  Articles : <span className="font-semibold text-foreground">{displayedArticles}</span>
+                </span>
+                <span>
+                  {basketPositionLabel}
+                  {basketPositionValue ? (
+                    <>
+                      {" "}
+                      <span className="font-semibold text-foreground">{basketPositionValue}</span>
+                    </>
+                  ) : null}
+                </span>
+                <div className="ml-auto flex items-center gap-3">
+                  <span>Client : {displayedClientName}</span>
+                </div>
               </div>
               <p className="mt-6 text-6xl font-semibold tracking-tight">{displayedTotalValue}</p>
             </div>
@@ -1172,7 +1246,12 @@ export function CounterPage({
               <div className="flex items-center gap-2">
                 <div className="flex flex-1 items-center rounded-2xl border border-emerald-500 bg-background px-3 py-1">
                   <ScanLine className="h-4 w-4 text-emerald-500" />
-                  <input className="w-full bg-transparent text-sm outline-none" placeholder="Rechercher client" />
+                  <input
+                    className="w-full bg-transparent text-sm outline-none"
+                    placeholder="Client (Standard ou nom)"
+                    value={selectedClient}
+                    onChange={(event) => setSelectedClient(event.target.value)}
+                  />
                 </div>
                 <Button size="sm" variant="secondary">
                   <Calculator className="h-4 w-4" />
@@ -1188,10 +1267,12 @@ export function CounterPage({
                 </label>
                 <label className="flex flex-col gap-1">
                   Client
-                  <select className="rounded-xl border border-strong bg-background px-2 py-1">
-                    <option>Standard client</option>
-                    <option>VIP</option>
-                  </select>
+                  <input
+                    className="rounded-xl border border-strong bg-background px-2 py-1"
+                    placeholder="Standard client"
+                    value={selectedClient}
+                    onChange={(event) => setSelectedClient(event.target.value)}
+                  />
                 </label>
               </div>
               <div className="mt-3 flex items-center gap-2">
@@ -1236,61 +1317,92 @@ export function CounterPage({
               ) : null}
             </div>
 
-            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-4">
-              <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                Navigation paniers
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <div />
-                <button
-                  type="button"
-                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
-                  onClick={() => cycleBasket(-1)}
-                  disabled={!canNavigateBaskets}
-                  aria-label="Panier précédent"
+            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-4 min-h-[200px]">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                  Navigation paniers
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px]"
+                  onClick={() => setShowNavigationKeypad((current) => !current)}
                 >
-                  <ArrowUp className="h-5 w-5" />
-                </button>
-                <div />
-                <button
-                  type="button"
-                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
-                  onClick={() => cycleBasket(-1)}
-                  disabled={!canNavigateBaskets}
-                  aria-label="Panier précédent"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  className="flex h-20 flex-col items-center justify-center rounded-2xl border border-emerald-500 bg-emerald-500 text-xs font-semibold uppercase tracking-wide text-white shadow-inner transition hover:bg-emerald-400"
-                  onClick={() => setBasketOverviewOpen(true)}
-                >
-                  <LayoutGrid className="h-5 w-5" />
-                  Voir paniers
-                  <span className="text-[9px] opacity-80">{holdCount} en attente</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
-                  onClick={() => cycleBasket(1)}
-                  disabled={!canNavigateBaskets}
-                  aria-label="Panier suivant"
-                >
-                  <ArrowRight className="h-5 w-5" />
-                </button>
-                <div />
-                <button
-                  type="button"
-                  className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
-                  onClick={() => cycleBasket(1)}
-                  disabled={!canNavigateBaskets}
-                  aria-label="Panier suivant"
-                >
-                  <ArrowDown className="h-5 w-5" />
-                </button>
-                <div />
+                  {showNavigationKeypad ? "Afficher navigation" : "Pavé numérique"}
+                </Button>
               </div>
+              {showNavigationKeypad ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {keypadRows.map((row) => (
+                      <div key={`nav-keypad-${row.join("-")}`} className="grid grid-cols-3 gap-2">
+                        {row.map((key) => (
+                          <button
+                            key={key}
+                            type="button"
+                            className="h-10 rounded-xl border border-strong bg-panel-soft text-xs font-semibold shadow-inner transition hover:bg-panel"
+                            onClick={() => handleKeypadInput(key)}
+                          >
+                            {key}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  <div />
+                  <button
+                    type="button"
+                    className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                    onClick={() => cycleBasket(-1)}
+                    disabled={!canNavigateBaskets}
+                    aria-label="Panier précédent"
+                  >
+                    <ArrowUp className="h-5 w-5" />
+                  </button>
+                  <div />
+                  <button
+                    type="button"
+                    className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                    onClick={() => handleNavigateHistory(-1)}
+                    disabled={!canNavigateHistory}
+                    aria-label="Panier validé précédent"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-14 flex-col items-center justify-center rounded-2xl border border-emerald-500 bg-emerald-500 text-xs font-semibold uppercase tracking-wide text-white shadow-inner transition hover:bg-emerald-400"
+                    onClick={() => setBasketOverviewOpen(true)}
+                  >
+                    <LayoutGrid className="h-5 w-5" />
+                    Voir paniers
+                    <span className="text-[9px] opacity-80">{holdCount} en attente</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                    onClick={() => handleNavigateHistory(1)}
+                    disabled={!canNavigateHistory}
+                    aria-label="Panier validé suivant"
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                  <div />
+                  <button
+                    type="button"
+                    className="flex h-14 items-center justify-center rounded-2xl border border-strong bg-background text-xl text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                    onClick={() => cycleBasket(1)}
+                    disabled={!canNavigateBaskets}
+                    aria-label="Panier suivant"
+                  >
+                    <ArrowDown className="h-5 w-5" />
+                  </button>
+                  <div />
+                </div>
+              )}
             </div>
           </div>
         </aside>

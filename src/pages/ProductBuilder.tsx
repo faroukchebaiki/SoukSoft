@@ -1,6 +1,9 @@
 import {
   Copy,
   Download,
+  LayoutGrid,
+  List,
+  Home,
   ImagePlus,
   Plus,
   Printer,
@@ -84,6 +87,10 @@ interface ImportHistoryEntry {
   appliedAt: number;
   summary: ImportSummary;
   previousProducts: CatalogProduct[];
+}
+
+interface ProductBuilderProps {
+  onGoHome?: () => void;
 }
 
 function createProductId() {
@@ -354,12 +361,13 @@ function persistDraftForm(value: ProductFormState | null) {
   window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(value));
 }
 
-export function ProductBuilder() {
+export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
   const [products, setProducts] = useState<CatalogProduct[]>(() => getStoredProducts());
   const [form, setForm] = useState<ProductFormState>(() => readDraftForm() ?? emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [markupInput, setMarkupInput] = useState("5");
   const [minQtyInput, setMinQtyInput] = useState("");
@@ -437,6 +445,20 @@ export function ProductBuilder() {
     if (!selectAllRef.current) return;
     selectAllRef.current.indeterminate = !isAllFilteredSelected && someFilteredSelected;
   }, [isAllFilteredSelected, someFilteredSelected]);
+
+  useEffect(() => {
+    if (!onGoHome) return;
+    const handleEscapeToHome = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        onGoHome();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscapeToHome);
+    return () => window.removeEventListener("keydown", handleEscapeToHome);
+  }, [onGoHome]);
 
   const loadDraftOrEmpty = () => readDraftForm() ?? emptyForm;
 
@@ -827,307 +849,232 @@ export function ProductBuilder() {
   };
 
   return (
-    <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Product builder</h1>
-          <p className="text-muted-foreground">
-            Manage the private product registry for special accounts. Changes sync to local storage.
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight">Product builder</h1>
+          <p className="text-sm text-muted-foreground">Focus on the list; zero wasted space.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border bg-card/80 p-1 text-xs">
+            <span className="px-2 text-muted-foreground">View</span>
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="gap-1 rounded-lg px-2"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4" />
+              List
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              className="gap-1 rounded-lg px-2"
+              onClick={() => setViewMode("grid")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Grid
+            </Button>
+          </div>
           <Button variant="outline" className="gap-2" onClick={handleReset}>
             <RefreshCcw className="h-4 w-4" />
-            Reset to defaults
+            Reset
           </Button>
-          <Button className="gap-2" onClick={handleOpenNewProduct}>
-            <Plus className="h-4 w-4" />
-            Add product
+          <Button variant="outline" className="gap-2" onClick={handleImportButtonClick}>
+            <Download className="h-4 w-4" />
+            Import
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleExportCsv}
+            disabled={exportDisabled}
+          >
+            <Upload className="h-4 w-4" />
+            Export
+          </Button>
+          <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
+            <Home className="h-4 w-4" />
+            Home (Esc)
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-6">
-        <Card className="min-h-[420px]">
-          <CardHeader>
-            <CardTitle>Registered products</CardTitle>
-            <CardDescription>
-              Only special accounts can see and edit these entries. Data lives in the browser for now.
-            </CardDescription>
-            <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-              <div className="rounded-2xl border bg-card/60 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">SKUs</p>
-                <p className="text-2xl font-semibold">{inventoryStats.skuCount}</p>
-                <p className="text-xs text-muted-foreground">Tracked products</p>
-              </div>
-              <div className="rounded-2xl border bg-card/60 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Stock value</p>
-                <p className="text-xl font-semibold">{formatCurrency(inventoryStats.stockValue)}</p>
-                <p className="text-xs text-muted-foreground">Based on buy price</p>
-              </div>
-              <div className="rounded-2xl border bg-card/60 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  Potential revenue
-                </p>
-                <p className="text-xl font-semibold">
-                  {formatCurrency(inventoryStats.potentialRevenue)}
-                </p>
-                <p className="text-xs text-muted-foreground">Sell price × stock</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <Card className="flex h-[calc(100vh-200px)] flex-col overflow-hidden rounded-2xl">
+        <CardHeader className="border-b bg-muted/40 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <input
+              className="w-full rounded-xl border bg-background px-3 py-2 text-sm lg:max-w-md"
+              placeholder="Search by name, SKU, or barcode"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button className="gap-2" onClick={handleOpenNewProduct}>
+                <Plus className="h-4 w-4" />
+                Add
+              </Button>
               <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm lg:max-w-sm"
-                placeholder="Search by name, SKU, or barcode"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={handleImportCsv}
               />
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={handleImportCsv}
-                />
+            </div>
+          </div>
+          {importFeedback ? (
+            <p className="mt-2 text-xs text-muted-foreground">{importFeedback}</p>
+          ) : null}
+        </CardHeader>
+        <CardContent className="flex flex-1 min-h-0 flex-col gap-3 overflow-hidden p-4">
+          {lastImportSnapshot ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.25em] text-blue-600 dark:text-blue-300">
+                  Undo available
+                </p>
+                <p className="font-semibold">{lastImportSnapshot.fileName}</p>
+                <p className="text-xs">
+                  Applied {new Date(lastImportSnapshot.appliedAt).toLocaleTimeString()} ·{" "}
+                  {lastImportSnapshot.summary.inserted.length} new /{" "}
+                  {lastImportSnapshot.summary.updated.length} updated
+                </p>
+              </div>
+              <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleImportButtonClick}
+                  size="sm"
+                  className="gap-2 bg-blue-600 text-white hover:bg-blue-500"
+                  onClick={handleUndoImport}
                 >
-                  <Upload className="h-4 w-4" />
-                  Import CSV
+                  Undo
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleExportCsv}
-                  disabled={exportDisabled}
-                >
-                  <Download className="h-4 w-4" />
-                  Export CSV
+                <Button type="button" size="sm" variant="ghost" onClick={handleDismissUndoSnapshot}>
+                  Dismiss
                 </Button>
               </div>
             </div>
-            {importFeedback ? (
-              <p className="text-xs text-muted-foreground">{importFeedback}</p>
-            ) : null}
-            {lastImportSnapshot ? (
-              <div className="flex flex-col gap-2 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100 md:flex-row md:items-center md:justify-between">
+          ) : null}
+
+          {importPreview ? (
+            <div className="space-y-3 rounded-xl border bg-card/70 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-blue-600 dark:text-blue-300">
-                    Undo available
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                    Import preview
                   </p>
-                  <p className="font-semibold">{lastImportSnapshot.fileName}</p>
-                  <p className="text-xs">
-                    Applied {new Date(lastImportSnapshot.appliedAt).toLocaleTimeString()} ·{" "}
-                    {lastImportSnapshot.summary.inserted.length} new /{" "}
-                    {lastImportSnapshot.summary.updated.length} updated
+                  <p className="text-sm font-semibold">{importPreview.fileName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {importPreview.summary.inserted.length} new · {importPreview.summary.updated.length} updates ·{" "}
+                    {importPreview.summary.skipped} skipped
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                   <Button
                     type="button"
-                    size="sm"
-                    className="gap-2 bg-blue-600 text-white hover:bg-blue-500"
-                    onClick={handleUndoImport}
+                    className="gap-2 bg-green-600 text-white hover:bg-green-500"
+                    onClick={handleConfirmImport}
                   >
-                    Undo last import
+                    Apply changes
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={handleDismissUndoSnapshot}>
-                    Dismiss
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-            {importPreview ? (
-              <div className="space-y-3 rounded-2xl border bg-card/60 p-4 text-sm">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                      Import preview
-                    </p>
-                    <p className="text-sm font-semibold">{importPreview.fileName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {importPreview.summary.inserted.length} new ·{" "}
-                      {importPreview.summary.updated.length} updates ·{" "}
-                      {importPreview.summary.skipped} skipped
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      className="gap-2 bg-green-600 text-white hover:bg-green-500"
-                      onClick={handleConfirmImport}
-                    >
-                      Apply changes
-                    </Button>
-                    <Button type="button" variant="outline" onClick={handleCancelImportPreview}>
-                      Discard
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border bg-background/80 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                      New SKUs
-                    </p>
-                    {importPreview.summary.inserted.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No new rows.</p>
-                    ) : (
-                      <ul className="mt-2 space-y-2 text-xs">
-                        {importPreview.summary.inserted.slice(0, IMPORT_PREVIEW_LIMIT).map((product) => (
-                          <li key={product.sku} className="rounded-lg border px-3 py-2">
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-muted-foreground">SKU: {product.sku}</p>
-                          </li>
-                        ))}
-                        {importPreview.summary.inserted.length > IMPORT_PREVIEW_LIMIT ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            +{importPreview.summary.inserted.length - IMPORT_PREVIEW_LIMIT} more
-                          </p>
-                        ) : null}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="rounded-xl border bg-background/80 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                      Updates
-                    </p>
-                    {importPreview.summary.updated.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No changes detected.</p>
-                    ) : (
-                      <ul className="mt-2 space-y-2 text-xs">
-                        {importPreview.summary.updated.slice(0, IMPORT_PREVIEW_LIMIT).map((entry) => {
-                          const priceBefore = entry.previous.sellPrice ?? entry.previous.price;
-                          const priceAfter = entry.next.sellPrice ?? entry.next.price;
-                          const priceChanged = priceBefore !== priceAfter;
-                          return (
-                            <li key={entry.next.id} className="rounded-lg border px-3 py-2">
-                              <p className="font-medium">{entry.next.name}</p>
-                              <p className="text-muted-foreground">SKU: {entry.next.sku}</p>
-                              {priceChanged ? (
-                                <p className="mt-1 font-mono text-[11px]">
-                                  Price {formatCurrency(priceBefore)} → {formatCurrency(priceAfter)}
-                                </p>
-                              ) : null}
-                            </li>
-                          );
-                        })}
-                        {importPreview.summary.updated.length > IMPORT_PREVIEW_LIMIT ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            +{importPreview.summary.updated.length - IMPORT_PREVIEW_LIMIT} more
-                          </p>
-                        ) : null}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-            {hasSelection ? (
-              <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-4 text-sm md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Batch edit</p>
-                  <p className="text-sm font-semibold">{selectedIds.size} selected</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      <span>Markup (%)</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
-                        value={markupInput}
-                        onChange={(event) => setMarkupInput(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="gap-2 bg-blue-600 text-white hover:bg-blue-500"
-                      onClick={handleApplyMarkup}
-                      disabled={!canApplyMarkup}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      <span>Min qty</span>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
-                        value={minQtyInput}
-                        onChange={(event) => setMinQtyInput(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
-                      onClick={handleApplyMinQty}
-                      disabled={!canApplyMinQty}
-                    >
-                      Set
-                    </Button>
-                  </div>
-                  <Button type="button" size="sm" variant="ghost" onClick={handleClearSelection}>
-                    Clear selection
+                  <Button type="button" variant="outline" onClick={handleCancelImportPreview}>
+                    Discard
                   </Button>
                 </div>
               </div>
-            ) : null}
-            <div className="max-h-[420px] overflow-auto rounded-2xl border">
-              <table className="min-w-full text-sm">
-                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="w-10 px-3 py-2 text-left">
-                      <input
-                        ref={selectAllRef}
-                        type="checkbox"
-                        className="size-4 rounded border"
-                        checked={isAllFilteredSelected && filteredProducts.length > 0}
-                        onChange={handleToggleSelectAll}
-                        aria-checked={
-                          !isAllFilteredSelected && someFilteredSelected ? "mixed" : undefined
-                        }
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left">Product</th>
-                    <th className="px-3 py-2 text-left">SKU</th>
-                    <th className="px-3 py-2 text-left">Barcode</th>
-                    <th className="px-3 py-2 text-right">Buy</th>
-                    <th className="px-3 py-2 text-right">Sell</th>
-                    <th className="px-3 py-2 text-right">Stock</th>
-                    <th className="px-3 py-2 text-right">Expires</th>
-                    <th className="px-3 py-2 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-background">
-                  {filteredProducts.length === 0 ? (
+            </div>
+          ) : null}
+
+          {hasSelection ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card/60 p-3 text-sm">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Batch edit</p>
+                <p className="text-sm font-semibold">{selectedIds.size} selected</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  <span>Markup (%)</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+                    value={markupInput}
+                    onChange={(event) => setMarkupInput(event.target.value)}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-2 bg-blue-600 text-white hover:bg-blue-500"
+                  onClick={handleApplyMarkup}
+                  disabled={!canApplyMarkup}
+                >
+                  Apply
+                </Button>
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  <span>Min qty</span>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-20 rounded-lg border bg-background px-2 py-1 text-sm"
+                    value={minQtyInput}
+                    onChange={(event) => setMinQtyInput(event.target.value)}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                  onClick={handleApplyMinQty}
+                  disabled={!canApplyMinQty}
+                >
+                  Set
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={handleClearSelection}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex-1 min-h-0 overflow-hidden rounded-xl border bg-card/60 h-[90vh]">
+            {filteredProducts.length === 0 ? (
+              <div className="flex h-full items-center justify-center p-6 text-muted-foreground">
+                Nothing matches your search.
+              </div>
+            ) : viewMode === "list" ? (
+              <div className="h-full overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/50 text-xs uppercase text-muted-foreground">
                     <tr>
-                      <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
-                        Nothing matches your search.
-                      </td>
+                      <th className="w-10 px-3 py-2 text-left">
+                        <input
+                          ref={selectAllRef}
+                          type="checkbox"
+                          className="size-4 rounded border"
+                          checked={isAllFilteredSelected && filteredProducts.length > 0}
+                          onChange={handleToggleSelectAll}
+                          aria-checked={
+                            !isAllFilteredSelected && someFilteredSelected ? "mixed" : undefined
+                          }
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-left">Product</th>
+                      <th className="px-3 py-2 text-left">SKU</th>
+                      <th className="px-3 py-2 text-left">Sell</th>
+                      <th className="px-3 py-2 text-right">Stock</th>
+                      <th className="px-3 py-2 text-right">Expires</th>
+                      <th className="px-3 py-2 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    filteredProducts.map((product) => {
+                  </thead>
+                  <tbody className="divide-y divide-border bg-background">
+                    {filteredProducts.map((product) => {
                       const minQty = product.minQty ?? 0;
                       const isLowStock = product.stockQty <= minQty;
                       return (
-                        <tr
-                          key={product.id}
-                          className={`transition-colors ${
-                            isLowStock ? "bg-destructive/5" : ""
-                          }`}
-                        >
+                        <tr key={product.id} className={isLowStock ? "bg-destructive/5" : undefined}>
                           <td className="px-3 py-3 align-top">
                             <input
                               type="checkbox"
@@ -1138,7 +1085,7 @@ export function ProductBuilder() {
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="h-12 w-12 overflow-hidden rounded-xl border bg-muted/40">
+                              <div className="h-10 w-10 overflow-hidden rounded-lg border bg-muted/40">
                                 {product.imageData ? (
                                   <img
                                     src={product.imageData}
@@ -1152,23 +1099,17 @@ export function ProductBuilder() {
                                 )}
                               </div>
                               <div>
-                                <p className="font-medium">{product.name}</p>
-                                <p className="text-xs text-muted-foreground">{product.category}</p>
+                                <p className="font-medium leading-tight">{product.name}</p>
+                                <p className="text-[11px] text-muted-foreground">{product.category}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-3">{product.sku}</td>
-                          <td className="px-3 py-3 text-muted-foreground">{product.barcode}</td>
-                          <td className="px-3 py-3 text-right">
-                            {formatCurrency(product.buyPrice ?? product.price)}
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            {formatCurrency(product.sellPrice ?? product.price)}
-                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">{product.sku}</td>
+                          <td className="px-3 py-3">{formatCurrency(product.sellPrice ?? product.price)}</td>
                           <td className="px-3 py-3 text-right">
                             <span>{product.stockQty}</span>
                             {isLowStock ? (
-                              <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                              <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
                                 Low
                               </span>
                             ) : null}
@@ -1180,16 +1121,11 @@ export function ProductBuilder() {
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(product)}>
                                 Edit
                               </Button>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => handleDuplicate(product)}
-                              >
-                                <Copy className="h-4 w-4" />
-                                Duplicate
+                              <Button variant="outline" size="sm" onClick={() => handleDuplicate(product)}>
+                                Copy
                               </Button>
                               <Button
                                 variant="ghost"
@@ -1202,16 +1138,86 @@ export function ProductBuilder() {
                             </div>
                           </td>
                         </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="h-full overflow-auto p-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredProducts.map((product) => {
+                    const minQty = product.minQty ?? 0;
+                    const isLowStock = product.stockQty <= minQty;
+                    return (
+                      <Card key={product.id} className="h-full">
+                        <CardContent className="space-y-3 p-3">
+                          <div className="flex items-start gap-3">
+                            <div className="h-12 w-12 overflow-hidden rounded-lg border bg-muted/40">
+                              {product.imageData ? (
+                                <img
+                                  src={product.imageData}
+                                  alt={product.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                  <ImagePlus className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold leading-tight">{product.name}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {product.category} · {product.sku}
+                              </p>
+                            </div>
+                            {isLowStock ? (
+                              <Badge variant="destructive" className="text-[11px]">
+                                Low
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            <span>Sell</span>
+                            <span className="text-right font-semibold text-foreground">
+                              {formatCurrency(product.sellPrice ?? product.price)}
+                            </span>
+                            <span>Stock</span>
+                            <span className="text-right font-semibold text-foreground">{product.stockQty}</span>
+                            <span>Expires</span>
+                            <span className="text-right text-foreground">
+                              {product.expirationDate
+                                ? new Date(product.expirationDate).toLocaleDateString("en-GB")
+                                : "—"}
+                            </span>
+                          </div>
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(product)}>
+                              Edit
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDuplicate(product)}>
+                              Copy
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(product.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
                     );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <Card className="flex h-[90vh] w-[90vw] max-w-[1200px] flex-col overflow-hidden rounded-[2rem]">

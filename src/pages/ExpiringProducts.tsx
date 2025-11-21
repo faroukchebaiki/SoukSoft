@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CalendarClock, LayoutGrid, List, RefreshCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CatalogProduct, Promotion } from "@/types";
 import { PRODUCT_STORAGE_EVENT, STORAGE_KEY, getStoredProducts } from "@/lib/productStorage";
-import { formatCurrency } from "@/lib/format";
 import { addPromotion, getPromotions } from "@/lib/promotionStorage";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -37,6 +36,7 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
   );
   const [promotions, setPromotions] = useState<Promotion[]>(() => getPromotions());
   const [promotionNotice, setPromotionNotice] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const syncProducts = useCallback(() => {
     setProducts(getStoredProducts());
@@ -88,19 +88,13 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
       .sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
   }, [products, windowDays]);
 
-  const summary = useMemo(() => {
-    const expired = expiringEntries.filter((entry) => entry.status === "expired");
-    const expiringSoon = expiringEntries.filter((entry) => entry.status === "expiring");
-    const valueAtRisk = expiringEntries.reduce((sum, entry) => {
-      const unitValue = entry.product.sellPrice ?? entry.product.price;
-      return sum + unitValue * entry.product.stockQty;
-    }, 0);
-    return {
-      expired: expired.length,
-      expiringSoon: expiringSoon.length,
-      valueAtRisk,
-    };
-  }, [expiringEntries]);
+  const summary = useMemo(
+    () => ({
+      expired: expiringEntries.filter((entry) => entry.status === "expired").length,
+      expiringSoon: expiringEntries.filter((entry) => entry.status === "expiring").length,
+    }),
+    [expiringEntries],
+  );
 
   const thresholdOptions = [7, 14, 30, 60, 90];
 
@@ -126,15 +120,36 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
   };
 
   return (
-    <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-10">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Expiring items</h1>
-          <p className="text-muted-foreground">
-            Track products approaching their shelf-life and plan markdowns or pullbacks in time.
+          <h1 className="text-xl font-semibold tracking-tight">Expiry radar</h1>
+          <p className="text-sm text-muted-foreground">
+            Stay on the items about to turn. Minimal chrome, maximum visibility.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border bg-card/70 p-1 text-xs">
+            <span className="px-2 text-muted-foreground">View</span>
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="gap-1 rounded-lg px-2"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4" />
+              List
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              className="gap-1 rounded-lg px-2"
+              onClick={() => setViewMode("grid")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Grid
+            </Button>
+          </div>
           <select
             className="rounded-xl border bg-background px-3 py-2 text-sm"
             value={windowDays}
@@ -148,69 +163,49 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
           </select>
           <Button variant="outline" className="gap-2" onClick={syncProducts}>
             <RefreshCcw className="h-4 w-4" />
-            Sync list
+            Sync
           </Button>
-      </div>
-    </div>
-
-    {promotionNotice ? (
-      <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-        {promotionNotice}
-      </div>
-    ) : null}
-
-    <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Expiring soon</CardTitle>
-            <CardDescription>Within the selected window</CardDescription>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold text-amber-500">
-            {summary.expiringSoon}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Expired</CardTitle>
-            <CardDescription>Already past due</CardDescription>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold text-red-500">
-            {summary.expired}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Value at risk</CardTitle>
-            <CardDescription>Retail value of flagged stock</CardDescription>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">
-            {formatCurrency(summary.valueAtRisk)}
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
-      <Card className="mt-6">
-        <CardHeader className="flex flex-row items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <div>
-            <CardTitle>Expiry watchlist</CardTitle>
-            <CardDescription>
-              Showing products that are expired or will expire within {windowDays} days.
+      {promotionNotice ? (
+        <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+          {promotionNotice}
+        </div>
+      ) : null}
+
+      <div className="flex h-[calc(100vh-180px)] flex-col overflow-hidden rounded-2xl border bg-card/80 shadow-sm">
+        <div className="flex items-center gap-2 border-b px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <div className="flex-1">
+            <CardTitle className="text-base">Watchlist</CardTitle>
+            <CardDescription className="text-xs">
+              Expired or within {windowDays} days. {summary.expiringSoon} ready for action.
             </CardDescription>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="max-h-[60vh] overflow-auto">
+          <Badge variant="secondary" className="text-xs">
+            {summary.expired} expired · {summary.expiringSoon} soon
+          </Badge>
+        </div>
+
+        {expiringEntries.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            <CalendarClock className="h-10 w-10 text-muted-foreground/70" />
+            <p className="text-sm">No products near their expiration window.</p>
+            <p className="text-xs text-muted-foreground">
+              Adjust the timeframe or add expiration dates in the Product Builder.
+            </p>
+          </div>
+        ) : viewMode === "list" ? (
+          <div className="flex-1 overflow-auto">
             <table className="min-w-full divide-y divide-border text-sm">
-              <thead className="sticky top-0 z-10 bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+              <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2 font-medium">Product</th>
                   <th className="px-4 py-2 font-medium">Expiration</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium text-right">Qty</th>
-                  <th className="px-4 py-2 font-medium text-right">Value</th>
                   <th className="px-4 py-2 font-medium text-right">Markdown</th>
-                  <th className="px-4 py-2 font-medium text-right">Promotion</th>
+                  <th className="px-4 py-2 font-medium text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-background">
@@ -244,23 +239,8 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          variant={entry.status === "expired" ? "destructive" : "secondary"}
-                          className={
-                            entry.status === "expired" ? "bg-red-500/15 text-red-600" : undefined
-                          }
-                        >
-                          {entry.status === "expired" ? "Expired" : "Expiring soon"}
-                        </Badge>
-                      </td>
                       <td className="px-4 py-3 text-right font-medium">
                         {entry.product.stockQty} {entry.product.unit}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium">
-                        {formatCurrency(
-                          (entry.product.sellPrice ?? entry.product.price) * entry.product.stockQty,
-                        )}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-amber-600">
                         {recommendedDiscount}% off
@@ -272,30 +252,79 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
                           onClick={() => handleCreatePromotion(entry)}
                           disabled={hasQueuedPromotion}
                         >
-                          {hasQueuedPromotion ? "Queued" : "Create promotion"}
+                          {hasQueuedPromotion ? "Queued" : "Queue promo"}
                         </Button>
                       </td>
                     </tr>
                   );
                 })}
-                {expiringEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                      <div className="flex flex-col items-center gap-2">
-                        <CalendarClock className="h-10 w-10 text-muted-foreground/70" />
-                        <p className="text-sm">No products are near their expiration window.</p>
-                        <p className="text-xs">
-                          Adjust the timeframe or add expiration dates in the Product Builder.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : null}
               </tbody>
             </table>
           </div>
-        </CardContent>
-      </Card>
+        ) : (
+          <div className="flex-1 overflow-auto p-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {expiringEntries.map((entry) => {
+                const recommendedDiscount = getMarkdownPercent(entry.daysRemaining);
+                const hasQueuedPromotion = promotions.some(
+                  (promotion) =>
+                    promotion.sku === entry.product.sku && promotion.status === "Queued",
+                );
+                return (
+                  <Card key={entry.product.id} className="h-full">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-base">{entry.product.name}</CardTitle>
+                          <CardDescription className="text-xs">{entry.product.sku}</CardDescription>
+                        </div>
+                        <Badge
+                          variant={entry.status === "expired" ? "destructive" : "secondary"}
+                          className={
+                            entry.status === "expired" ? "bg-red-500/15 text-red-600" : undefined
+                          }
+                        >
+                          {entry.status === "expired" ? "Expired" : "Soon"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Expires</span>
+                        <span className="font-medium text-foreground">
+                          {entry.expiresAt.toLocaleDateString("en-GB", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Stock</span>
+                        <span className="font-semibold">
+                          {entry.product.stockQty} {entry.product.unit}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Markdown</span>
+                        <span className="font-semibold text-amber-600">{recommendedDiscount}%</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                        onClick={() => handleCreatePromotion(entry)}
+                        disabled={hasQueuedPromotion}
+                      >
+                        {hasQueuedPromotion ? "Queued" : "Queue promotion"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

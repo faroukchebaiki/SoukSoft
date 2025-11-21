@@ -286,7 +286,7 @@ export default function App() {
       case "Expiring items":
         return <ExpiringProducts products={catalogData} />;
       case "Product builder":
-        return <ProductBuilder />;
+        return <ProductBuilder onGoHome={() => setShowSectionGrid(true)} />;
       default:
         return null;
     }

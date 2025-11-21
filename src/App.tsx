@@ -278,11 +278,11 @@ export default function App() {
           />
         );
       case "All items":
-        return <AllItems products={catalogData} />;
+        return <AllItems products={catalogData} onGoHome={() => setShowSectionGrid(true)} />;
       case "History":
-        return <PurchaseHistory entries={purchaseHistory} />;
+        return <PurchaseHistory entries={purchaseHistory} onGoHome={() => setShowSectionGrid(true)} />;
       case "Settings":
-        return <Settings options={settingsOptions} />;
+        return <Settings options={settingsOptions} onGoHome={() => setShowSectionGrid(true)} />;
       case "Expiring items":
         return <ExpiringProducts products={catalogData} onGoHome={() => setShowSectionGrid(true)} />;
       case "Product builder":

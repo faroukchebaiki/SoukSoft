@@ -1,4 +1,4 @@
-import { Clock9, History as HistoryIcon, ReceiptText, Trash2, X } from "lucide-react";
+import { Clock9, History as HistoryIcon, Home, ReceiptText, Trash2, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +28,10 @@ const emptyEditForm: EditReceiptFormState = {
 
 interface PurchaseHistoryProps {
   entries: PurchaseHistoryEntry[];
+  onGoHome?: () => void;
 }
 
-export function PurchaseHistory({ entries }: PurchaseHistoryProps) {
+export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const [historyEntries, setHistoryEntries] = useState(entries);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditReceiptFormState>(emptyEditForm);
@@ -127,18 +128,24 @@ export function PurchaseHistory({ entries }: PurchaseHistoryProps) {
   const latestAuditEntries = auditEntries.slice(0, 10);
 
   return (
-    <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
-      <header className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">History</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-semibold tracking-tight">History</h1>
+          <p className="text-sm text-muted-foreground">
             Every purchase logged with timestamps, payment methods, and cashier notes.
           </p>
         </div>
-        <Badge variant="outline" className="w-fit gap-2">
-          <HistoryIcon className="h-4 w-4" />
-          {historyEntries.length} receipts today
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="w-fit gap-2">
+            <HistoryIcon className="h-4 w-4" />
+            {historyEntries.length} receipts today
+          </Badge>
+          <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
+            <Home className="h-4 w-4" />
+            Home
+          </Button>
+        </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-3">

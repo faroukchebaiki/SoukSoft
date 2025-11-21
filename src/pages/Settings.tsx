@@ -1,4 +1,5 @@
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,6 +14,7 @@ import type { SettingOption } from "@/types";
 
 interface SettingsProps {
   options: SettingOption[];
+  onGoHome?: () => void;
 }
 
 const profile = {
@@ -22,9 +24,20 @@ const profile = {
   login: "register-02",
 };
 
-export function Settings({ options }: SettingsProps) {
+export function Settings({ options, onGoHome }: SettingsProps) {
   return (
-    <main className="page-shell flex-1 overflow-y-auto px-8 py-8">
+    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+          <p className="text-sm text-muted-foreground">Quick preferences for the register.</p>
+        </div>
+        <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
+          <Home className="h-4 w-4" />
+          Home
+        </Button>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader>

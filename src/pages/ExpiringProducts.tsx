@@ -100,6 +100,18 @@ export function ExpiringProducts({
     };
   }, [isWindowMenuOpen]);
 
+  useEffect(() => {
+    if (!onGoHome) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        onGoHome();
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onGoHome]);
+
   const expiringEntries = useMemo<ExpiringEntry[]>(() => {
     const now = Date.now();
     return products

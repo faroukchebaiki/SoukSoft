@@ -1,5 +1,4 @@
 import {
-  Copy,
   Download,
   LayoutGrid,
   List,
@@ -17,6 +16,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState 
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { CatalogProduct, UnitType } from "@/types";
 import { logAuditEvent } from "@/lib/auditLog";
 import { getStoredProducts, resetProducts, saveProducts } from "@/lib/productStorage";
@@ -63,7 +63,6 @@ const CSV_HEADERS = [
   "minQty",
   "expirationDate",
 ] as const;
-const IMPORT_PREVIEW_LIMIT = 5;
 const DEFAULT_AUDIT_ACTOR = "Backoffice";
 
 type CsvField = (typeof CSV_HEADERS)[number];
@@ -387,22 +386,6 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
         product.barcode?.toLowerCase().includes(value),
     );
   }, [filter, products]);
-
-  const inventoryStats = useMemo(() => {
-    const summary = {
-      skuCount: products.length,
-      stockValue: 0,
-      potentialRevenue: 0,
-    };
-    for (const product of products) {
-      const qty = Number(product.stockQty) || 0;
-      const buy = Number(product.buyPrice ?? product.price) || 0;
-      const sell = Number(product.sellPrice ?? product.price) || 0;
-      summary.stockValue += buy * qty;
-      summary.potentialRevenue += sell * qty;
-    }
-    return summary;
-  }, [products]);
 
   const profitStats = useMemo(() => {
     const buy = Number(form.buyPrice) || 0;

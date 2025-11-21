@@ -1,5 +1,13 @@
-import { AlertTriangle, CalendarClock, Home, LayoutGrid, List, RefreshCcw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  ChevronDown,
+  Home,
+  LayoutGrid,
+  List,
+  RefreshCcw,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +49,8 @@ export function ExpiringProducts({
   const [promotions, setPromotions] = useState<Promotion[]>(() => getPromotions());
   const [promotionNotice, setPromotionNotice] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [isWindowMenuOpen, setIsWindowMenuOpen] = useState(false);
+  const windowMenuRef = useRef<HTMLDivElement | null>(null);
 
   const syncProducts = useCallback(() => {
     setProducts(getStoredProducts());
@@ -69,6 +79,26 @@ export function ExpiringProducts({
       window.removeEventListener("storage", handleStorage);
     };
   }, [externalProducts, syncProducts]);
+
+  useEffect(() => {
+    if (!isWindowMenuOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      if (windowMenuRef.current && !windowMenuRef.current.contains(event.target as Node)) {
+        setIsWindowMenuOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsWindowMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isWindowMenuOpen]);
 
   const expiringEntries = useMemo<ExpiringEntry[]>(() => {
     const now = Date.now();
@@ -152,17 +182,40 @@ export function ExpiringProducts({
               Grid
             </Button>
           </div>
-          <select
-            className="h-10 rounded-xl border bg-card/70 px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            value={windowDays}
-            onChange={(event) => setWindowDays(Number(event.target.value))}
-          >
-            {thresholdOptions.map((days) => (
-              <option key={days} value={days}>
-                {days} day window
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={windowMenuRef}>
+            <Button
+              variant="outline"
+              className="h-10 min-w-[170px] justify-between gap-2 rounded-xl border bg-card/70 text-sm shadow-sm"
+              onClick={() => setIsWindowMenuOpen((prev) => !prev)}
+            >
+              {windowDays} day window
+              <ChevronDown
+                className={`h-4 w-4 transition ${isWindowMenuOpen ? "rotate-180" : ""}`}
+              />
+            </Button>
+            {isWindowMenuOpen ? (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-20 w-48 overflow-hidden rounded-xl border bg-card/90 text-sm shadow-xl backdrop-blur-sm">
+                {thresholdOptions.map((days) => {
+                  const active = days === windowDays;
+                  return (
+                    <button
+                      key={days}
+                      type="button"
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left transition hover:bg-muted/60 ${
+                        active ? "bg-primary/10 font-semibold text-primary" : ""
+                      }`}
+                      onClick={() => {
+                        setWindowDays(days);
+                        setIsWindowMenuOpen(false);
+                      }}
+                    >
+                      <span>{days} day window</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
           <Button variant="outline" className="gap-2" onClick={syncProducts}>
             <RefreshCcw className="h-4 w-4" />
             Sync

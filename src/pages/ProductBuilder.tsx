@@ -901,7 +901,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
         </div>
       </div>
 
-      <Card className="flex h-[calc(100vh-200px)] flex-col overflow-hidden rounded-2xl">
+      <Card className="flex h-[calc(100vh-120px)] flex-col overflow-hidden rounded-2xl">
         <CardHeader className="border-b bg-muted/40 pb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <input
@@ -1039,7 +1039,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
             </div>
           ) : null}
 
-          <div className="flex-1 min-h-0 overflow-hidden rounded-xl border bg-card/60 h-[90vh]">
+          <div className="flex-1 min-h-0 overflow-hidden rounded-xl border bg-card/60">
             {filteredProducts.length === 0 ? (
               <div className="flex h-full items-center justify-center p-6 text-muted-foreground">
                 Nothing matches your search.

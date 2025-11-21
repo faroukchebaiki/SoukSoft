@@ -284,7 +284,7 @@ export default function App() {
       case "Settings":
         return <Settings options={settingsOptions} />;
       case "Expiring items":
-        return <ExpiringProducts products={catalogData} />;
+        return <ExpiringProducts products={catalogData} onGoHome={() => setShowSectionGrid(true)} />;
       case "Product builder":
         return <ProductBuilder onGoHome={() => setShowSectionGrid(true)} />;
       default:

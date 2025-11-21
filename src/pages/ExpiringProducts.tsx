@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, LayoutGrid, List, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CalendarClock, Home, LayoutGrid, List, RefreshCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ interface ExpiringEntry {
 
 interface ExpiringProductsProps {
   products?: CatalogProduct[];
+  onGoHome?: () => void;
 }
 
 function getMarkdownPercent(daysRemaining: number) {
@@ -29,7 +30,10 @@ function getMarkdownPercent(daysRemaining: number) {
   return 10;
 }
 
-export function ExpiringProducts({ products: externalProducts }: ExpiringProductsProps = {}) {
+export function ExpiringProducts({
+  products: externalProducts,
+  onGoHome,
+}: ExpiringProductsProps = {}) {
   const [windowDays, setWindowDays] = useState(30);
   const [products, setProducts] = useState<CatalogProduct[]>(
     () => externalProducts ?? getStoredProducts(),
@@ -120,16 +124,14 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
   };
 
   return (
-    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-10">
+    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Expiry radar</h1>
-          <p className="text-sm text-muted-foreground">
-            Stay on the items about to turn. Minimal chrome, maximum visibility.
-          </p>
+          <p className="text-sm text-muted-foreground">Focus on flagged items; no wasted space.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-xl border bg-card/70 p-1 text-xs">
+          <div className="flex items-center gap-1 rounded-xl border bg-card/80 p-1 text-xs">
             <span className="px-2 text-muted-foreground">View</span>
             <Button
               size="sm"
@@ -151,7 +153,7 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
             </Button>
           </div>
           <select
-            className="rounded-xl border bg-background px-3 py-2 text-sm"
+            className="h-10 rounded-xl border bg-card/70 px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             value={windowDays}
             onChange={(event) => setWindowDays(Number(event.target.value))}
           >
@@ -165,50 +167,113 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
             <RefreshCcw className="h-4 w-4" />
             Sync
           </Button>
+          <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
+            <Home className="h-4 w-4" />
+            Home
+          </Button>
         </div>
       </div>
 
-      {promotionNotice ? (
-        <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-          {promotionNotice}
-        </div>
-      ) : null}
-
-      <div className="flex h-[calc(100vh-180px)] flex-col overflow-hidden rounded-2xl border bg-card/80 shadow-sm">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <div className="flex-1">
-            <CardTitle className="text-base">Watchlist</CardTitle>
-            <CardDescription className="text-xs">
-              Expired or within {windowDays} days. {summary.expiringSoon} ready for action.
-            </CardDescription>
+      <Card className="flex h-[calc(100vh-120px)] flex-col overflow-hidden rounded-2xl">
+        <CardHeader className="border-b bg-muted/40 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <div>
+                <CardTitle className="text-base">Watchlist</CardTitle>
+                <CardDescription className="text-xs">
+                  Expired or within {windowDays} days. {summary.expiringSoon} ready for action.
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {summary.expired} expired · {summary.expiringSoon} soon
+            </Badge>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            {summary.expired} expired · {summary.expiringSoon} soon
-          </Badge>
-        </div>
+          {promotionNotice ? (
+            <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+              {promotionNotice}
+            </div>
+          ) : null}
+        </CardHeader>
 
-        {expiringEntries.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-            <CalendarClock className="h-10 w-10 text-muted-foreground/70" />
-            <p className="text-sm">No products near their expiration window.</p>
-            <p className="text-xs text-muted-foreground">
-              Adjust the timeframe or add expiration dates in the Product Builder.
-            </p>
-          </div>
-        ) : viewMode === "list" ? (
-          <div className="flex-1 overflow-auto">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Product</th>
-                  <th className="px-4 py-2 font-medium">Expiration</th>
-                  <th className="px-4 py-2 font-medium text-right">Qty</th>
-                  <th className="px-4 py-2 font-medium text-right">Markdown</th>
-                  <th className="px-4 py-2 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border bg-background">
+        <CardContent className="flex flex-1 min-h-0 flex-col overflow-hidden p-4">
+          {expiringEntries.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <CalendarClock className="h-10 w-10 text-muted-foreground/70" />
+              <p className="text-sm">No products near their expiration window.</p>
+              <p className="text-xs text-muted-foreground">
+                Adjust the timeframe or add expiration dates in the Product Builder.
+              </p>
+            </div>
+          ) : viewMode === "list" ? (
+            <div className="flex-1 overflow-auto rounded-xl border bg-card/60">
+              <table className="min-w-full divide-y divide-border text-sm">
+                <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 font-medium">Product</th>
+                    <th className="px-4 py-2 font-medium">Expiration</th>
+                    <th className="px-4 py-2 font-medium text-right">Qty</th>
+                    <th className="px-4 py-2 font-medium text-right">Markdown</th>
+                    <th className="px-4 py-2 font-medium text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border bg-background">
+                  {expiringEntries.map((entry) => {
+                    const recommendedDiscount = getMarkdownPercent(entry.daysRemaining);
+                    const hasQueuedPromotion = promotions.some(
+                      (promotion) =>
+                        promotion.sku === entry.product.sku && promotion.status === "Queued",
+                    );
+                    return (
+                      <tr key={entry.product.id}>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{entry.product.name}</span>
+                            <span className="text-xs text-muted-foreground">{entry.product.sku}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span>
+                              {entry.expiresAt.toLocaleDateString("en-GB", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {entry.daysRemaining < 0
+                                ? `${Math.abs(entry.daysRemaining)} day(s) overdue`
+                                : `${entry.daysRemaining} day(s) left`}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium">
+                          {entry.product.stockQty} {entry.product.unit}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                          {recommendedDiscount}% off
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            size="sm"
+                            className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                            onClick={() => handleCreatePromotion(entry)}
+                            disabled={hasQueuedPromotion}
+                          >
+                            {hasQueuedPromotion ? "Queued" : "Queue promo"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-auto p-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {expiringEntries.map((entry) => {
                   const recommendedDiscount = getMarkdownPercent(entry.daysRemaining);
                   const hasQueuedPromotion = promotions.some(
@@ -216,115 +281,57 @@ export function ExpiringProducts({ products: externalProducts }: ExpiringProduct
                       promotion.sku === entry.product.sku && promotion.status === "Queued",
                   );
                   return (
-                    <tr key={entry.product.id}>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{entry.product.name}</span>
-                          <span className="text-xs text-muted-foreground">{entry.product.sku}</span>
+                    <Card key={entry.product.id} className="h-full">
+                      <CardContent className="space-y-3 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-base">{entry.product.name}</CardTitle>
+                            <CardDescription className="text-xs">{entry.product.sku}</CardDescription>
+                          </div>
+                          <Badge
+                            variant={entry.status === "expired" ? "destructive" : "secondary"}
+                            className={
+                              entry.status === "expired" ? "bg-red-500/15 text-red-600" : undefined
+                            }
+                          >
+                            {entry.status === "expired" ? "Expired" : "Soon"}
+                          </Badge>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <span>Expires</span>
+                          <span className="text-right text-foreground">
                             {entry.expiresAt.toLocaleDateString("en-GB", {
                               year: "numeric",
                               month: "short",
                               day: "numeric",
                             })}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {entry.daysRemaining < 0
-                              ? `${Math.abs(entry.daysRemaining)} day(s) overdue`
-                              : `${entry.daysRemaining} day(s) left`}
+                          <span>Stock</span>
+                          <span className="text-right font-semibold text-foreground">
+                            {entry.product.stockQty} {entry.product.unit}
+                          </span>
+                          <span>Markdown</span>
+                          <span className="text-right font-semibold text-amber-600">
+                            {recommendedDiscount}%
                           </span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium">
-                        {entry.product.stockQty} {entry.product.unit}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-amber-600">
-                        {recommendedDiscount}% off
-                      </td>
-                      <td className="px-4 py-3 text-right">
                         <Button
                           size="sm"
-                          className="gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                          className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
                           onClick={() => handleCreatePromotion(entry)}
                           disabled={hasQueuedPromotion}
                         >
-                          {hasQueuedPromotion ? "Queued" : "Queue promo"}
+                          {hasQueuedPromotion ? "Queued" : "Queue promotion"}
                         </Button>
-                      </td>
-                    </tr>
+                      </CardContent>
+                    </Card>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-auto p-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {expiringEntries.map((entry) => {
-                const recommendedDiscount = getMarkdownPercent(entry.daysRemaining);
-                const hasQueuedPromotion = promotions.some(
-                  (promotion) =>
-                    promotion.sku === entry.product.sku && promotion.status === "Queued",
-                );
-                return (
-                  <Card key={entry.product.id} className="h-full">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <CardTitle className="text-base">{entry.product.name}</CardTitle>
-                          <CardDescription className="text-xs">{entry.product.sku}</CardDescription>
-                        </div>
-                        <Badge
-                          variant={entry.status === "expired" ? "destructive" : "secondary"}
-                          className={
-                            entry.status === "expired" ? "bg-red-500/15 text-red-600" : undefined
-                          }
-                        >
-                          {entry.status === "expired" ? "Expired" : "Soon"}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Expires</span>
-                        <span className="font-medium text-foreground">
-                          {entry.expiresAt.toLocaleDateString("en-GB", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Stock</span>
-                        <span className="font-semibold">
-                          {entry.product.stockQty} {entry.product.unit}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Markdown</span>
-                        <span className="font-semibold text-amber-600">{recommendedDiscount}%</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
-                        onClick={() => handleCreatePromotion(entry)}
-                        disabled={hasQueuedPromotion}
-                      >
-                        {hasQueuedPromotion ? "Queued" : "Queue promotion"}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }

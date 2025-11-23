@@ -119,7 +119,8 @@ export function ExpiringProducts({
         if (!product.expirationDate) return null;
         const expiresAt = new Date(product.expirationDate);
         if (Number.isNaN(expiresAt.getTime())) return null;
-        const diffDays = Math.ceil((expiresAt.getTime() - now) / MS_PER_DAY);
+        const diffInDays = (expiresAt.getTime() - now) / MS_PER_DAY;
+        const diffDays = diffInDays < 0 ? Math.floor(diffInDays) : Math.ceil(diffInDays);
         const status: ExpiringEntry["status"] | null =
           diffDays < 0 ? "expired" : diffDays <= windowDays ? "expiring" : null;
         if (!status) return null;

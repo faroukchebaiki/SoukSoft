@@ -49,7 +49,7 @@ export function AllItems({ products, onGoHome }: AllItemsProps) {
   const totalSkus = filteredProducts.length;
   const totalUnits = filteredProducts.reduce((sum, product) => sum + product.stockQty, 0);
   const lowStockSkus = filteredProducts.filter(
-    (product) => product.minQty && product.stockQty <= product.minQty,
+    (product) => product.minQty !== undefined && product.stockQty <= product.minQty,
   ).length;
 
   return (
@@ -170,7 +170,7 @@ export function AllItems({ products, onGoHome }: AllItemsProps) {
                           {product.stockQty} {product.unit}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {product.minQty ? (
+                          {product.minQty !== undefined ? (
                             <span
                               className={isLow ? "font-semibold text-amber-500" : "text-muted-foreground"}
                             >

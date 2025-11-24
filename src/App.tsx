@@ -6,9 +6,10 @@ import {
   DEFAULT_SECTION,
   navigation,
   purchaseHistory,
-  settingsOptions,
+  generalSettingsOptions,
   userProfiles,
   DEFAULT_USER_ID,
+  personalSettingsOptions,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { getStoredProducts, PRODUCT_STORAGE_EVENT, STORAGE_KEY } from "@/lib/productStorage";
@@ -19,15 +20,26 @@ import { ProductBuilder } from "@/pages/ProductBuilder";
 import { PurchaseHistory } from "@/pages/PurchaseHistory";
 import { Settings } from "@/pages/Settings";
 import { ExpiringProducts } from "@/pages/ExpiringProducts";
+import { AdminSettings } from "@/pages/AdminSettings";
+import { CreateAccount } from "@/pages/CreateAccount";
 
 const USER_STORAGE_KEY = "souksoft-active-user";
 const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
 const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-prefs";
 
 const rolePermissions: Record<UserRole, Section[]> = {
-  Manager: ["Counter", "All items", "History", "Settings", "Expiring items", "Product builder"],
-  Seller: ["Counter", "History"],
-  Inventory: ["All items", "Expiring items", "Product builder"],
+  Manager: [
+    "Counter",
+    "All items",
+    "History",
+    "Settings",
+    "Admin settings",
+    "Create account",
+    "Expiring items",
+    "Product builder",
+  ],
+  Seller: ["Counter", "History", "Settings"],
+  Inventory: ["All items", "Expiring items", "Product builder", "Settings"],
 };
 
 function resolveStoredUserId(accounts: AccountProfile[]) {
@@ -282,7 +294,22 @@ export default function App() {
       case "History":
         return <PurchaseHistory entries={purchaseHistory} onGoHome={() => setShowSectionGrid(true)} />;
       case "Settings":
-        return <Settings options={settingsOptions} onGoHome={() => setShowSectionGrid(true)} />;
+        return (
+          <Settings
+            profile={activeUser}
+            personalOptions={personalSettingsOptions}
+            onGoHome={() => setShowSectionGrid(true)}
+          />
+        );
+      case "Admin settings":
+        return (
+          <AdminSettings
+            options={generalSettingsOptions}
+            onGoHome={() => setShowSectionGrid(true)}
+          />
+        );
+      case "Create account":
+        return <CreateAccount onGoHome={() => setShowSectionGrid(true)} />;
       case "Expiring items":
         return <ExpiringProducts products={catalogData} onGoHome={() => setShowSectionGrid(true)} />;
       case "Product builder":
@@ -337,6 +364,19 @@ export default function App() {
                   >
                     Settings
                   </Button>
+                  {allowedSections.includes("Admin settings") ? (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setActiveSection("Admin settings");
+                        setShowSectionGrid(false);
+                        setIsUserMenuOpen(false);
+                      }}
+                    >
+                      Admin settings
+                    </Button>
+                  ) : null}
                   <Button
                     variant="destructive"
                     className="w-full justify-start"
@@ -388,8 +428,8 @@ export default function App() {
             <div className="text-center">
               <h2 className="text-xl font-semibold">Choose where to go</h2>
               <p className="text-sm text-muted-foreground">
-                You have access to {allowedSections.length} section
-                {allowedSections.length === 1 ? "" : "s"}.
+                You have access to {sectionCards.length} section
+                {sectionCards.length === 1 ? "" : "s"}.
               </p>
             </div>
             <div className="grid w-full max-w-4xl gap-4 md:grid-cols-2 lg:grid-cols-3">

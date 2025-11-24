@@ -7,6 +7,8 @@ export type Section =
   | "All items"
   | "History"
   | "Settings"
+  | "Admin settings"
+  | "Create account"
   | "Product builder"
   | "Expiring items";
 

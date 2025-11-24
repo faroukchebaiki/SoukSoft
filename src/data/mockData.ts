@@ -4,7 +4,7 @@ import {
   History,
   Package,
   Receipt,
-  Settings,
+  UserPlus,
   ShieldPlus,
   SquareTerminal,
   Wallet,
@@ -27,7 +27,7 @@ export const navigation: readonly NavigationItem[] = [
   { label: "Counter", icon: SquareTerminal },
   { label: "All items", icon: Package },
   { label: "History", icon: History },
-  { label: "Settings", icon: Settings },
+  { label: "Create account", icon: UserPlus },
   { label: "Expiring items", icon: AlertTriangle },
   { label: "Product builder", icon: ShieldPlus },
 ] satisfies ReadonlyArray<NavigationItem>;
@@ -421,7 +421,25 @@ export const purchaseHistory: PurchaseHistoryEntry[] = [
   },
 ];
 
-export const settingsOptions: SettingOption[] = [
+export const personalSettingsOptions: SettingOption[] = [
+  {
+    name: "Password & security",
+    description: "Update your login password or set a quick-PIN for this device.",
+    actionLabel: "Update sign-in",
+  },
+  {
+    name: "Notifications",
+    description: "Choose alerts for low-stock, order status, and shift reminders.",
+    actionLabel: "Adjust alerts",
+  },
+  {
+    name: "Language & region",
+    description: "Switch receipt language, currency format, and time zone for your view.",
+    actionLabel: "Edit locale",
+  },
+];
+
+export const generalSettingsOptions: SettingOption[] = [
   {
     name: "Shift schedule",
     description:

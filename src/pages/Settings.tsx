@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,19 @@ const profile = {
 };
 
 export function Settings({ options, onGoHome }: SettingsProps) {
+  useEffect(() => {
+    if (!onGoHome) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onGoHome();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onGoHome]);
+
   return (
     <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -34,7 +48,7 @@ export function Settings({ options, onGoHome }: SettingsProps) {
         </div>
         <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
           <Home className="h-4 w-4" />
-          Home
+          Home (Esc)
         </Button>
       </div>
 

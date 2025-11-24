@@ -13,7 +13,13 @@ import {
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { getStoredProducts, PRODUCT_STORAGE_EVENT, STORAGE_KEY } from "@/lib/productStorage";
-import type { AccountProfile, CatalogProduct, Section, UserRole } from "@/types";
+import type {
+  AccountProfile,
+  CatalogProduct,
+  CreateAccountPayload,
+  Section,
+  UserRole,
+} from "@/types";
 import { AllItems } from "@/pages/AllItems";
 import { CounterPage } from "@/pages/CounterPage";
 import { ProductBuilder } from "@/pages/ProductBuilder";
@@ -21,7 +27,7 @@ import { PurchaseHistory } from "@/pages/PurchaseHistory";
 import { Settings } from "@/pages/Settings";
 import { ExpiringProducts } from "@/pages/ExpiringProducts";
 import { AdminSettings } from "@/pages/AdminSettings";
-import { CreateAccount } from "@/pages/CreateAccount";
+import { AccountsPage } from "@/pages/AccountsPage";
 
 const USER_STORAGE_KEY = "souksoft-active-user";
 const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
@@ -34,7 +40,7 @@ const rolePermissions: Record<UserRole, Section[]> = {
     "History",
     "Settings",
     "Admin settings",
-    "Create account",
+    "Accounts",
     "Expiring items",
     "Product builder",
   ],
@@ -244,6 +250,33 @@ export default function App() {
     setShowSectionGrid(true);
   };
 
+  const handleCreateAccount = (payload: CreateAccountPayload) => {
+    const firstName = payload.firstName.trim();
+    const lastName = payload.lastName.trim();
+    const trimmedUsername = payload.username.trim().toLowerCase();
+    const email = payload.email.trim();
+    if (!firstName || !lastName || !trimmedUsername || !email || !payload.password) {
+      return { success: false, error: "Please fill in all required fields." };
+    }
+    if (accounts.some((user) => user.username.toLowerCase() === trimmedUsername)) {
+      return { success: false, error: "Username already exists." };
+    }
+    const newAccount: AccountProfile = {
+      id: crypto.randomUUID?.() ?? `USR-${Date.now()}`,
+      firstName,
+      lastName,
+      username: trimmedUsername,
+      password: payload.password,
+      name: `${firstName} ${lastName}`,
+      role: payload.role,
+      email,
+      avatarInitials: `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase(),
+      shift: payload.shift || "08:00 - 16:00",
+    };
+    setAccounts((prev) => [...prev, newAccount]);
+    return { success: true, account: newAccount };
+  };
+
   const handleLogout = () => {
     setActiveUserId(null);
     setAuthMode("login");
@@ -308,8 +341,14 @@ export default function App() {
             onGoHome={() => setShowSectionGrid(true)}
           />
         );
-      case "Create account":
-        return <CreateAccount onGoHome={() => setShowSectionGrid(true)} />;
+      case "Accounts":
+        return (
+          <AccountsPage
+            accounts={accounts}
+            onCreateAccount={handleCreateAccount}
+            onGoHome={() => setShowSectionGrid(true)}
+          />
+        );
       case "Expiring items":
         return <ExpiringProducts products={catalogData} onGoHome={() => setShowSectionGrid(true)} />;
       case "Product builder":

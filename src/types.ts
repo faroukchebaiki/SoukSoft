@@ -8,7 +8,7 @@ export type Section =
   | "History"
   | "Settings"
   | "Admin settings"
-  | "Create account"
+  | "Accounts"
   | "Product builder"
   | "Expiring items";
 
@@ -95,6 +95,16 @@ export interface AccountProfile {
   email: string;
   avatarInitials: string;
   shift: string;
+}
+
+export interface CreateAccountPayload {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  password: string;
+  shift?: string;
 }
 
 export interface CatalogProduct {

@@ -27,7 +27,7 @@ export const navigation: readonly NavigationItem[] = [
   { label: "Counter", icon: SquareTerminal },
   { label: "All items", icon: Package },
   { label: "History", icon: History },
-  { label: "Create account", icon: UserPlus },
+  { label: "Accounts", icon: UserPlus },
   { label: "Expiring items", icon: AlertTriangle },
   { label: "Product builder", icon: ShieldPlus },
 ] satisfies ReadonlyArray<NavigationItem>;

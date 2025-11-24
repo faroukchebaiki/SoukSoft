@@ -235,7 +235,7 @@ export function ExpiringProducts({
           </Button>
           <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
             <Home className="h-4 w-4" />
-            Home
+            Home (Esc)
           </Button>
         </div>
       </div>

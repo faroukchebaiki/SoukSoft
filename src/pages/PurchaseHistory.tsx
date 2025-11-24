@@ -57,6 +57,19 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!onGoHome) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        onGoHome();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onGoHome]);
+
   const selectedEntry = useMemo(
     () => historyEntries.find((entry) => entry.id === selectedEntryId) ?? null,
     [historyEntries, selectedEntryId],
@@ -143,7 +156,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
           </Badge>
           <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
             <Home className="h-4 w-4" />
-            Home
+            Home (Esc)
           </Button>
         </div>
       </header>

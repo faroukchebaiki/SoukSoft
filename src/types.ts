@@ -95,6 +95,7 @@ export interface AccountProfile {
   email: string;
   avatarInitials: string;
   shift: string;
+  archived?: boolean;
 }
 
 export interface CreateAccountPayload {
@@ -105,6 +106,11 @@ export interface CreateAccountPayload {
   role: UserRole;
   password: string;
   shift?: string;
+}
+
+export interface UpdateAccountPayload extends CreateAccountPayload {
+  id: string;
+  archived?: boolean;
 }
 
 export interface CatalogProduct {

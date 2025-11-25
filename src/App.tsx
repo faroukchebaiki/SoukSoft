@@ -18,6 +18,7 @@ import type {
   CatalogProduct,
   CreateAccountPayload,
   Section,
+  UpdateAccountPayload,
   UserRole,
 } from "@/types";
 import { AllItems } from "@/pages/AllItems";
@@ -83,7 +84,7 @@ function readStoredAccounts(): AccountProfile[] {
       window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(userProfiles));
       return userProfiles;
     }
-    return parsed;
+    return parsed.map((account) => ({ ...account, archived: Boolean(account.archived) }));
   } catch {
     return userProfiles;
   }
@@ -111,6 +112,30 @@ export default function App() {
     [accounts, activeUserId],
   );
   const hasManager = accounts.some((user) => user.role === "Manager");
+
+  useEffect(() => {
+    if (accounts.some((account) => account.role === "Manager")) return;
+    const usernameBase = "manager";
+    let username = usernameBase;
+    let suffix = 1;
+    while (accounts.some((account) => account.username === username)) {
+      username = `${usernameBase}${suffix++}`;
+    }
+    const fallbackManager: AccountProfile = {
+      id: crypto.randomUUID?.() ?? `USR-${Date.now()}`,
+      firstName: "Restored",
+      lastName: "Manager",
+      username,
+      password: "password123",
+      name: "Restored Manager",
+      role: "Manager",
+      email: `${username}@souksoft.local`,
+      avatarInitials: "RM",
+      shift: "08:00 - 16:00",
+      archived: false,
+    };
+    setAccounts((prev) => (prev.some((account) => account.role === "Manager") ? prev : [...prev, fallbackManager]));
+  }, [accounts]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -203,7 +228,7 @@ export default function App() {
     const account = accounts.find(
       (user) => user.username.toLowerCase() === normalized && user.password === password,
     );
-    if (!account) {
+    if (!account || account.archived) {
       setAuthError("Invalid username or password.");
       return;
     }
@@ -243,6 +268,7 @@ export default function App() {
       email: `${trimmedUsername}@souksoft.local`,
       avatarInitials: `${firstName.trim()[0] ?? ""}${lastName.trim()[0] ?? ""}`.toUpperCase(),
       shift: "08:00 - 16:00",
+      archived: false,
     };
     setAccounts((prev) => [...prev, newAccount]);
     setActiveUserId(newAccount.id);
@@ -272,9 +298,67 @@ export default function App() {
       email,
       avatarInitials: `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase(),
       shift: payload.shift || "08:00 - 16:00",
+      archived: false,
     };
     setAccounts((prev) => [...prev, newAccount]);
     return { success: true, account: newAccount };
+  };
+
+  const handleUpdateAccount = (payload: UpdateAccountPayload) => {
+    const trimmedUsername = payload.username.trim().toLowerCase();
+    if (!trimmedUsername || !payload.firstName.trim() || !payload.lastName.trim()) {
+      return { success: false, error: "Please complete all fields." };
+    }
+    if (
+      accounts.some(
+        (user) => user.username.toLowerCase() === trimmedUsername && user.id !== payload.id,
+      )
+    ) {
+      return { success: false, error: "Username already exists." };
+    }
+    setAccounts((prev) =>
+      prev.map((account) =>
+        account.id === payload.id
+          ? {
+              ...account,
+              firstName: payload.firstName.trim(),
+              lastName: payload.lastName.trim(),
+              username: trimmedUsername,
+              name: `${payload.firstName.trim()} ${payload.lastName.trim()}`,
+              role: payload.role,
+              email: payload.email.trim(),
+              password: payload.password,
+              shift: payload.shift || "08:00 - 16:00",
+            }
+          : account,
+      ),
+    );
+    return { success: true };
+  };
+
+  const handleArchiveAccount = (id: string, archived: boolean) => {
+    setAccounts((prev) =>
+      prev.map((account) => (account.id === id ? { ...account, archived } : account)),
+    );
+  };
+
+  const handleDeleteAccount = (id: string) => {
+    const target = accounts.find((account) => account.id === id);
+    if (!target) return { success: false, error: "Account not found." };
+    if (target.role === "Manager") {
+      return { success: false, error: "Manager accounts cannot be deleted." };
+    }
+    setAccounts((prev) => {
+      const next = prev.filter((account) => account.id !== id);
+      setActiveUserId((prevActive) => {
+        if (prevActive === id) {
+          return next[0]?.id ?? null;
+        }
+        return prevActive;
+      });
+      return next;
+    });
+    return { success: true };
   };
 
   const handleLogout = () => {
@@ -346,6 +430,9 @@ export default function App() {
           <AccountsPage
             accounts={accounts}
             onCreateAccount={handleCreateAccount}
+            onUpdateAccount={handleUpdateAccount}
+            onArchiveAccount={handleArchiveAccount}
+            onDeleteAccount={handleDeleteAccount}
             onGoHome={() => setShowSectionGrid(true)}
           />
         );
@@ -403,19 +490,6 @@ export default function App() {
                   >
                     Settings
                   </Button>
-                  {allowedSections.includes("Admin settings") ? (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setActiveSection("Admin settings");
-                        setShowSectionGrid(false);
-                        setIsUserMenuOpen(false);
-                      }}
-                    >
-                      Admin settings
-                    </Button>
-                  ) : null}
                   <Button
                     variant="destructive"
                     className="w-full justify-start"

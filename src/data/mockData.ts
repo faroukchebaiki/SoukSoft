@@ -4,6 +4,7 @@ import {
   History,
   Package,
   Receipt,
+  Shield,
   UserPlus,
   ShieldPlus,
   SquareTerminal,
@@ -28,6 +29,7 @@ export const navigation: readonly NavigationItem[] = [
   { label: "All items", icon: Package },
   { label: "History", icon: History },
   { label: "Accounts", icon: UserPlus },
+  { label: "Admin settings", icon: Shield },
   { label: "Expiring items", icon: AlertTriangle },
   { label: "Product builder", icon: ShieldPlus },
 ] satisfies ReadonlyArray<NavigationItem>;
@@ -477,6 +479,7 @@ export const userProfiles: AccountProfile[] = [
     email: "lina@souksoft.dz",
     avatarInitials: "LB",
     shift: "08:00 - 16:00",
+    archived: false,
   },
   {
     id: "USR-002",
@@ -489,6 +492,7 @@ export const userProfiles: AccountProfile[] = [
     email: "karim@souksoft.dz",
     avatarInitials: "KS",
     shift: "09:00 - 17:00",
+    archived: false,
   },
   {
     id: "USR-003",
@@ -501,6 +505,7 @@ export const userProfiles: AccountProfile[] = [
     email: "nadia@souksoft.dz",
     avatarInitials: "NH",
     shift: "06:00 - 14:00",
+    archived: false,
   },
 ] satisfies AccountProfile[];
 

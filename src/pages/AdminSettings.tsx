@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, CheckCircle2, Home, LockKeyhole, Shield, ShieldPlus } from "lucide-react";
+import { Building2, Home, Shield, ShieldPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import type { SettingOption } from "@/types";
 
 interface AdminSettingsProps {
@@ -30,7 +30,7 @@ export function AdminSettings({ options, onGoHome }: AdminSettingsProps) {
     sellerCanInventory: true,
     inventoryCanSell: false,
   });
-  const [pageAccess, setPageAccess] = useState(() => ({
+  const [pageAccess, setPageAccess] = useState<Record<string, string[]>>(() => ({
     lina: ["Counter", "All items", "Admin settings", "Accounts"],
     karim: ["Counter", "History"],
     nadia: ["All items", "Expiring items", "Product builder"],
@@ -66,7 +66,7 @@ export function AdminSettings({ options, onGoHome }: AdminSettingsProps) {
 
   const togglePageAccess = (userKey: string, section: string) => {
     setPageAccess((prev) => {
-      const current = prev[userKey] ?? [];
+      const current = (prev[userKey] ?? []) as string[];
       const hasSection = current.includes(section);
       const next = hasSection ? current.filter((s) => s !== section) : [...current, section];
       return { ...prev, [userKey]: next };

@@ -20,6 +20,7 @@ import type {
   Section,
   UpdateAccountPayload,
   UserRole,
+  WorkerProfile,
 } from "@/types";
 import { AllItems } from "@/pages/AllItems";
 import { CounterPage } from "@/pages/CounterPage";
@@ -94,44 +95,117 @@ function readStoredAccounts(): AccountProfile[] {
   }
 }
 
-interface WorkerProfile {
-  id: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  salary: number;
-  startDate: string;
-  status: "Active" | "On leave" | "Inactive";
-  jobTitle: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  birthDate?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  contractType?: string;
-  weeklyHours?: number;
-  department?: string;
-  photoData?: string;
-  notes?: string;
-  source: "account" | "manual";
-}
+const ACCOUNT_WORKER_DEFAULTS: Record<string, Partial<WorkerProfile>> = {
+  "USR-001": {
+    salary: 150000,
+    phone: "+213-550-100-001",
+    email: "lina@souksoft.dz",
+    address: "12 Rue Emir Abdelkader, Algiers",
+    jobTitle: "Store Manager",
+  },
+  "USR-002": {
+    salary: 85000,
+    phone: "+213-550-200-002",
+    email: "karim@souksoft.dz",
+    jobTitle: "Senior Seller",
+    startDate: "2023-04-10",
+  },
+  "USR-003": {
+    salary: 92000,
+    phone: "+213-550-300-003",
+    email: "nadia@souksoft.dz",
+    jobTitle: "Inventory Lead",
+    startDate: "2022-09-01",
+  },
+};
+
+const DEMO_WORKERS: WorkerProfile[] = [
+  {
+    id: "WRK-DEMO-1",
+    firstName: "Yassine",
+    lastName: "Boufaroua",
+    role: "Inventory",
+    jobTitle: "Cleaner",
+    salary: 48000,
+    startDate: "2023-11-15",
+    status: "Active",
+    contractType: "Full-time",
+    weeklyHours: 40,
+    department: "Operations",
+    phone: "+213-551-400-010",
+    notes: "Keeps backroom tidy and assists with closing.",
+    source: "manual",
+  },
+  {
+    id: "WRK-DEMO-2",
+    firstName: "Amina",
+    lastName: "Hamdi",
+    role: "Seller",
+    jobTitle: "Cashier",
+    salary: 70000,
+    startDate: "2024-02-01",
+    status: "On leave",
+    contractType: "Part-time",
+    weeklyHours: 24,
+    department: "Frontline",
+    phone: "+213-552-222-222",
+    emergencyContactName: "Sara Hamdi",
+    emergencyContactPhone: "+213-661-222-222",
+    notes: "Scheduled to return next month.",
+    source: "manual",
+  },
+  {
+    id: "WRK-DEMO-3",
+    firstName: "Sofiane",
+    lastName: "Kaci",
+    role: "Inventory",
+    jobTitle: "Stocker",
+    salary: 62000,
+    startDate: "2023-07-20",
+    status: "Active",
+    contractType: "Full-time",
+    weeklyHours: 42,
+    department: "Warehouse",
+    phone: "+213-553-333-333",
+    emergencyContactName: "Yacine Kaci",
+    emergencyContactPhone: "+213-661-333-333",
+    notes: "Handles receiving and barcode checks.",
+    source: "manual",
+  },
+  {
+    id: "WRK-DEMO-4",
+    firstName: "Laila",
+    lastName: "Cherif",
+    role: "Seller",
+    jobTitle: "Supervisor",
+    salary: 98000,
+    startDate: "2021-12-05",
+    status: "Active",
+    contractType: "Full-time",
+    weeklyHours: 40,
+    department: "Frontline",
+    phone: "+213-554-444-444",
+    email: "laila.cherif@souksoft.dz",
+    notes: "Cross-trained on expiring items and counter.",
+    source: "manual",
+  },
+];
 
 function readStoredWorkers(): WorkerProfile[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(WORKERS_STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) return DEMO_WORKERS;
     const parsed = JSON.parse(raw) as WorkerProfile[];
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return DEMO_WORKERS;
     return parsed.map((worker) => ({
+      ...worker,
       jobTitle: worker.jobTitle ?? worker.role,
       contractType: worker.contractType ?? "Full-time",
       weeklyHours: worker.weeklyHours ?? 40,
-      ...worker,
     }));
   } catch {
-    return [];
+    return DEMO_WORKERS;
   }
 }
 
@@ -210,24 +284,25 @@ export default function App() {
       const next: WorkerProfile[] = [];
       accounts.forEach((account) => {
         const found = existingMap.get(account.id);
+        const defaults = ACCOUNT_WORKER_DEFAULTS[account.id] ?? {};
         next.push({
           id: account.id,
           firstName: account.firstName,
           lastName: account.lastName,
           role: account.role,
-          salary: found?.salary ?? 0,
-          startDate: found?.startDate ?? new Date().toISOString().slice(0, 10),
+          salary: found?.salary ?? defaults.salary ?? 0,
+          startDate: found?.startDate ?? defaults.startDate ?? new Date().toISOString().slice(0, 10),
           status: found?.status ?? "Active",
-          jobTitle: found?.jobTitle ?? account.role,
-          email: found?.email ?? account.email,
-          address: found?.address ?? "",
+          jobTitle: found?.jobTitle ?? defaults.jobTitle ?? account.role,
+          email: found?.email ?? defaults.email ?? account.email,
+          address: found?.address ?? defaults.address ?? "",
           birthDate: found?.birthDate ?? "",
           emergencyContactName: found?.emergencyContactName ?? "",
           emergencyContactPhone: found?.emergencyContactPhone ?? "",
-          contractType: found?.contractType ?? "Full-time",
-          weeklyHours: found?.weeklyHours ?? 40,
-          department: found?.department ?? "Frontline",
-          phone: found?.phone ?? "",
+          contractType: found?.contractType ?? defaults.contractType ?? "Full-time",
+          weeklyHours: found?.weeklyHours ?? defaults.weeklyHours ?? 40,
+          department: found?.department ?? defaults.department ?? "Frontline",
+          phone: found?.phone ?? defaults.phone ?? "",
           notes: found?.notes ?? "",
           photoData: found?.photoData,
           source: "account",
@@ -517,6 +592,7 @@ export default function App() {
         return (
           <Settings
             profile={activeUser}
+            worker={workers.find((w) => w.id === activeUser.id)}
             personalOptions={personalSettingsOptions}
             onGoHome={() => setShowSectionGrid(true)}
           />

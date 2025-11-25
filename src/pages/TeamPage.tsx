@@ -61,9 +61,11 @@ const emptyWorker: WorkerProfile = {
 
 export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGoHome }: TeamPageProps) {
   const [showModal, setShowModal] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [form, setForm] = useState<WorkerProfile>(emptyWorker);
   const [isEditing, setIsEditing] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [profileIndex, setProfileIndex] = useState(0);
 
   const combined = useMemo(() => {
     const accountIds = new Set(accounts.map((a) => a.id));
@@ -77,6 +79,7 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
     setForm(worker);
     setPhotoPreview(worker.photoData ?? null);
     setShowModal(true);
+    setShowProfile(false);
   };
 
   const handleCreate = () => {
@@ -84,6 +87,7 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
     setForm({ ...emptyWorker, id: crypto.randomUUID?.() ?? `WRK-${Date.now()}` });
     setPhotoPreview(null);
     setShowModal(true);
+    setShowProfile(false);
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -91,6 +95,7 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
     if (!form.firstName.trim() || !form.lastName.trim()) return;
     onSaveWorker(form);
     setShowModal(false);
+    setShowProfile(false);
   };
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,12 +122,32 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
           setShowModal(false);
           return;
         }
+        if (showProfile) {
+          setShowProfile(false);
+          return;
+        }
         onGoHome();
+      }
+      if (showProfile && combined.length > 0) {
+        if (event.key === "ArrowLeft") {
+          setProfileIndex((prev) => (prev - 1 + combined.length) % combined.length);
+        }
+        if (event.key === "ArrowRight") {
+          setProfileIndex((prev) => (prev + 1) % combined.length);
+        }
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [onGoHome, showModal]);
+  }, [onGoHome, showModal, showProfile, combined.length]);
+
+  const openProfile = (index: number) => {
+    setProfileIndex(index);
+    setShowProfile(true);
+    setShowModal(false);
+  };
+
+  const profileWorker = combined[profileIndex];
 
   return (
     <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
@@ -160,6 +185,7 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
               <tr>
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Job title</th>
+                <th className="px-4 py-2 font-medium">Phone</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Salary</th>
                 <th className="px-4 py-2 font-medium">Start date</th>
@@ -167,8 +193,12 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-background">
-              {combined.map((worker) => (
-                <tr key={worker.id}>
+              {combined.map((worker, index) => (
+                <tr
+                  key={worker.id}
+                  className="cursor-pointer transition hover:-translate-y-[1px] hover:bg-muted/40 active:scale-[0.995]"
+                  onClick={() => openProfile(index)}
+                >
                   <td className="px-4 py-3">
                     <div className="font-medium">
                       {worker.firstName} {worker.lastName}
@@ -179,6 +209,9 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
                     {worker.jobTitle}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {worker.phone || "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Badge
@@ -202,7 +235,10 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => handleEdit(worker)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleEdit(worker);
+                        }}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -210,7 +246,10 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                        onClick={() => onDeleteWorker(worker.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteWorker(worker.id);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -259,26 +298,13 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm font-medium">
-                    Job title
-                    <select
+                    Job title / role
+                    <input
                       className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
                       value={form.jobTitle}
                       onChange={(e) => setForm((prev) => ({ ...prev, jobTitle: e.target.value }))}
-                    >
-                      <option>Manager</option>
-                      <option>Seller</option>
-                      <option>Inventory</option>
-                      <option>Cleaner</option>
-                      <option>Cashier</option>
-                      <option>Stocker</option>
-                      <option>Security</option>
-                      <option>Supervisor</option>
-                      <option>Accountant</option>
-                      <option>Driver</option>
-                      <option>Operations</option>
-                      <option>Support</option>
-                      <option>Other</option>
-                    </select>
+                      placeholder="Enter a custom role or title"
+                    />
                   </label>
                   <label className="flex flex-col gap-1 text-sm font-medium">
                     Status
@@ -435,6 +461,91 @@ export function TeamPage({ accounts, workers, onSaveWorker, onDeleteWorker, onGo
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showProfile && profileWorker ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm">
+          <div className="w-[min(980px,96vw)] max-h-[90vh] overflow-auto rounded-2xl border border-border/70 bg-white text-slate-900 shadow-2xl shadow-black/60 dark:bg-slate-900 dark:text-slate-50">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold">
+                  {profileWorker.firstName} {profileWorker.lastName}
+                </h2>
+                <p className="text-sm text-muted-foreground">{profileWorker.jobTitle}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowProfile(false)} aria-label="Close profile">
+                <span className="text-lg leading-none">×</span>
+              </Button>
+            </div>
+            <div className="grid gap-4 px-6 py-5 md:grid-cols-[1.2fr_1fr]">
+              <div className="space-y-3 rounded-xl border border-border/60 bg-card/70 p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                    {profileWorker.photoData ? (
+                      <img src={profileWorker.photoData} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No photo</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {profileWorker.status} · Started {profileWorker.startDate}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-lg border bg-background p-3 text-sm">
+                  <div className="text-muted-foreground">Salary</div>
+                  <div className="text-right font-semibold">{profileWorker.salary.toLocaleString()} DZD</div>
+                  <div className="text-muted-foreground">Contract</div>
+                  <div className="text-right">{profileWorker.contractType ?? "—"}</div>
+                  <div className="text-muted-foreground">Weekly hours</div>
+                  <div className="text-right">{profileWorker.weeklyHours ?? 0} h</div>
+                  <div className="text-muted-foreground">Status</div>
+                  <div className="text-right">{profileWorker.status}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-lg border bg-background p-3 text-sm">
+                  <div className="text-muted-foreground">Phone</div>
+                  <div className="text-right">{profileWorker.phone || "—"}</div>
+                  <div className="text-muted-foreground">Email</div>
+                  <div className="text-right">{profileWorker.email || "—"}</div>
+                  <div className="text-muted-foreground">Address</div>
+                  <div className="text-right">{profileWorker.address || "—"}</div>
+                  <div className="text-muted-foreground">Birth date</div>
+                  <div className="text-right">{profileWorker.birthDate || "—"}</div>
+                  <div className="text-muted-foreground">Emergency</div>
+                  <div className="text-right">
+                    {profileWorker.emergencyContactName || "—"} {profileWorker.emergencyContactPhone || ""}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3 rounded-xl border border-border/60 bg-card/70 p-4 shadow-sm">
+                <div className="text-sm font-semibold">Notes</div>
+                <div className="min-h-[200px] rounded-lg border bg-background p-3 text-sm text-muted-foreground">
+                  {profileWorker.notes?.trim() ? profileWorker.notes : "No notes yet."}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setProfileIndex((prev) => (prev - 1 + combined.length) % combined.length)}
+                >
+                  ← Prev
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setProfileIndex((prev) => (prev + 1) % combined.length)}
+                >
+                  Next →
+                </Button>
+              </div>
+              <Button variant="outline" className="gap-2 rounded-full" onClick={() => handleEdit(profileWorker)}>
+                Edit profile
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}

@@ -176,3 +176,26 @@ export interface Promotion {
   notes?: string;
   triggeredBy?: string;
 }
+
+export interface WorkerProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  salary: number;
+  startDate: string;
+  status: "Active" | "On leave" | "Inactive";
+  jobTitle: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  birthDate?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  contractType?: string;
+  weeklyHours?: number;
+  department?: string;
+  photoData?: string;
+  notes?: string;
+  source: "account" | "manual";
+}

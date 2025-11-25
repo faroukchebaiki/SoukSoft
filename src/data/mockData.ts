@@ -431,16 +431,6 @@ export const personalSettingsOptions: SettingOption[] = [
     description: "Update your login password or set a quick-PIN for this device.",
     actionLabel: "Update sign-in",
   },
-  {
-    name: "Notifications",
-    description: "Choose alerts for low-stock, order status, and shift reminders.",
-    actionLabel: "Adjust alerts",
-  },
-  {
-    name: "Language & region",
-    description: "Switch receipt language, currency format, and time zone for your view.",
-    actionLabel: "Edit locale",
-  },
 ];
 
 export const generalSettingsOptions: SettingOption[] = [

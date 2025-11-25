@@ -29,6 +29,7 @@ import { Settings } from "@/pages/Settings";
 import { ExpiringProducts } from "@/pages/ExpiringProducts";
 import { AdminSettings } from "@/pages/AdminSettings";
 import { AccountsPage } from "@/pages/AccountsPage";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const USER_STORAGE_KEY = "souksoft-active-user";
 const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
@@ -450,7 +451,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-muted/20 text-foreground">
       {showSectionGrid ? (
-        <header className="px-6 py-4">
+        <header className="flex items-center justify-between px-6 py-4">
           <div className="relative inline-flex" ref={userMenuRef}>
             <button
               type="button"
@@ -533,6 +534,7 @@ export default function App() {
               </div>
             ) : null}
           </div>
+          <ThemeToggle />
         </header>
       ) : null}
       <main className={cn("flex flex-1 flex-col", showSectionGrid ? "px-8 py-6" : "p-0")}>

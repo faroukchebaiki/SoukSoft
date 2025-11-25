@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, Edit3, Home, Plus, Trash2, Undo2, UserRound, Users, X } from "lucide-react";
+import {
+  Archive,
+  Edit3,
+  Home,
+  ImagePlus,
+  Plus,
+  RefreshCcw,
+  Trash2,
+  Undo2,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +36,10 @@ interface AccountsPageProps {
 interface FormState extends CreateAccountPayload {
   confirmPassword: string;
   id?: string;
+}
+
+function generateInviteCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 const emptyForm: FormState = {
@@ -59,6 +75,9 @@ export function AccountsPage({
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [createMethod, setCreateMethod] = useState<"form" | "invite">("form");
+  const [inviteCode, setInviteCode] = useState<string>(() => generateInviteCode());
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
@@ -108,6 +127,9 @@ export function AccountsPage({
     setFormError(null);
     setSuccessMessage(null);
     setActionError(null);
+    setAvatarPreview(null);
+    setCreateMethod("form");
+    setInviteCode(generateInviteCode());
     setShowModal(true);
   };
 
@@ -126,6 +148,7 @@ export function AccountsPage({
     });
     setFormError(null);
     setActionError(null);
+    setCreateMethod("form");
     setShowModal(true);
   };
 
@@ -138,6 +161,13 @@ export function AccountsPage({
     event.preventDefault();
     setFormError(null);
     setSuccessMessage(null);
+    setActionError(null);
+    if (mode === "create" && createMethod === "invite") {
+      setSuccessMessage(`Invitation code ${inviteCode} for a ${form.role} account generated.`);
+      setShowModal(false);
+      setInviteCode(generateInviteCode());
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setFormError("Passwords do not match.");
       return;
@@ -184,6 +214,7 @@ export function AccountsPage({
     }
     setShowModal(false);
     setForm(emptyForm);
+    setAvatarPreview(null);
   };
 
   const handleArchiveToggle = (account: AccountProfile) => {
@@ -193,6 +224,16 @@ export function AccountsPage({
     }
     onArchiveAccount?.(account.id, !account.archived);
     setActionError(null);
+  };
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setAvatarPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
   };
 
   const handleDelete = (account: AccountProfile) => {
@@ -220,16 +261,10 @@ export function AccountsPage({
             List of users with their categories. Filter, edit, archive, or delete from here.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button className="gap-2 rounded-full px-4" onClick={openCreateModal}>
-            <Plus className="h-4 w-4" />
-            Create new account
-          </Button>
-          <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
-            <Home className="h-4 w-4" />
-            Home (Esc)
-          </Button>
-        </div>
+        <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
+          <Home className="h-4 w-4" />
+          Home (Esc)
+        </Button>
       </div>
 
       <Card className="flex h-[calc(100vh-150px)] flex-col overflow-hidden">
@@ -345,11 +380,17 @@ export function AccountsPage({
                     <td className="px-4 py-3 text-sm text-muted-foreground">{account.email}</td>
                     <td className="px-4 py-3">
                       {account.archived ? (
-                        <Badge variant="secondary" className="rounded-full bg-muted/70 text-xs text-muted-foreground">
+                        <Badge
+                          variant="secondary"
+                          className="rounded-full bg-muted/70 text-xs text-muted-foreground dark:bg-muted/40 dark:text-muted-foreground"
+                        >
                           Archived
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="rounded-full bg-emerald-100 text-xs text-emerald-700">
+                        <Badge
+                          variant="secondary"
+                          className="rounded-full bg-emerald-100 text-xs text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-100"
+                        >
                           Active
                         </Badge>
                       )}
@@ -399,109 +440,217 @@ export function AccountsPage({
       </Card>
 
       {showModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 backdrop-blur-sm">
-          <div className="w-[min(960px,95vw)] max-h-[90vh] overflow-auto rounded-2xl border bg-card shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm">
+          <div className="w-[min(980px,96vw)] max-h-[90vh] overflow-auto rounded-2xl border border-border/70 bg-white text-slate-900 shadow-2xl shadow-black/60 dark:bg-slate-900 dark:text-slate-50">
             <div className="flex items-start justify-between gap-3 border-b px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  {mode === "create" ? "Create a new account" : "Edit account"}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {mode === "create"
-                    ? "Fill out the form to add someone to this register."
-                    : "Update details, category, or shift. Passwords are stored in plain text here."}
-                </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <UserRound className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {mode === "create" ? "Create a new account" : "Edit account"}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {mode === "create"
+                        ? "Choose full form or just generate an invitation code."
+                        : "Update details, category, or shift. Passwords are stored in plain text here."}
+                    </p>
+                  </div>
+                </div>
+                {mode === "create" ? (
+                  <div className="inline-flex rounded-full border bg-muted/70 p-1 text-xs font-medium">
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1 transition hover:bg-background/80 active:scale-[0.98] ${
+                        createMethod === "form"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      }`}
+                      onClick={() => setCreateMethod("form")}
+                    >
+                      Full form
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1 transition hover:bg-background/80 active:scale-[0.98] ${
+                        createMethod === "invite"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      }`}
+                      onClick={() => setCreateMethod("invite")}
+                    >
+                      Invitation code
+                    </button>
+                  </div>
+                ) : null}
               </div>
               <Button variant="ghost" size="icon" onClick={closeModal}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  First name
-                  <input
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.firstName}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, firstName: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Last name
-                  <input
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.lastName}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, lastName: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Username
-                  <input
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.username}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, username: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Email
-                  <input
-                    type="email"
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.email}
-                    onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Category (role)
-                  <select
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.role}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, role: event.target.value as UserRole }))
-                    }
-                  >
-                    <option value="Manager">Manager</option>
-                    <option value="Seller">Seller</option>
-                    <option value="Inventory">Inventory</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Shift
-                  <input
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.shift}
-                    onChange={(event) => setForm((prev) => ({ ...prev, shift: event.target.value }))}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Password
-                  <input
-                    type="password"
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.password}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, password: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium">
-                  Confirm password
-                  <input
-                    type="password"
-                    className="rounded-md border bg-background px-3 py-2 text-sm font-normal"
-                    value={form.confirmPassword}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
-                    }
-                  />
-                </label>
-              </div>
+              {mode === "create" && createMethod === "invite" ? (
+                <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
+                  <div className="space-y-4 rounded-xl border bg-card/70 p-4">
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Category (role)
+                      <select
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.role}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, role: event.target.value as UserRole }))
+                        }
+                      >
+                        <option value="Manager">Manager</option>
+                        <option value="Seller">Seller</option>
+                        <option value="Inventory">Inventory</option>
+                      </select>
+                    </label>
+                    <div className="rounded-xl border border-border/60 bg-white px-4 py-5 text-foreground shadow-sm dark:bg-slate-800 dark:text-slate-50">
+                      <div className="text-xs uppercase text-muted-foreground">Invitation code</div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="text-3xl font-semibold tracking-widest">{inviteCode}</div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 rounded-full"
+                          onClick={() => setInviteCode(generateInviteCode())}
+                        >
+                          <RefreshCcw className="h-4 w-4" />
+                          Regenerate
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Share this 6-digit code to onboard a teammate without filling every field.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-card/70 p-4">
+                    <div className="text-sm font-semibold">Quick steps</div>
+                    <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                      <li>1. Pick the category you want to invite.</li>
+                      <li>2. Generate the code and share it securely.</li>
+                      <li>3. They’ll redeem the code to finalize their account.</li>
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      First name
+                      <input
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.firstName}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, firstName: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Last name
+                      <input
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.lastName}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, lastName: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Username
+                      <input
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.username}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, username: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Email
+                      <input
+                        type="email"
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.email}
+                        onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Category (role)
+                      <select
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.role}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, role: event.target.value as UserRole }))
+                        }
+                      >
+                        <option value="Manager">Manager</option>
+                        <option value="Seller">Seller</option>
+                        <option value="Inventory">Inventory</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Shift
+                      <input
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.shift}
+                        onChange={(event) => setForm((prev) => ({ ...prev, shift: event.target.value }))}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Password
+                      <input
+                        type="password"
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.password}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, password: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium">
+                      Confirm password
+                      <input
+                        type="password"
+                        className="rounded-md border border-border/70 bg-white px-3 py-2 text-sm font-normal text-foreground transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-slate-50"
+                        value={form.confirmPassword}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-white p-4 text-foreground shadow-sm dark:bg-slate-800 dark:text-slate-50">
+                    <div className="mb-2 text-sm font-semibold">Profile photo</div>
+                    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed bg-background p-4 text-center dark:bg-slate-900/60">
+                      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                        {avatarPreview ? (
+                          <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Upload a square JPG/PNG to personalize receipts and shifts.
+                      </div>
+                      <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/15">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarChange}
+                        />
+                        <ImagePlus className="h-4 w-4" />
+                        Upload photo
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
               {formError ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   {formError}
@@ -514,7 +663,11 @@ export function AccountsPage({
                 </Button>
                 <Button type="submit" className="gap-2">
                   {mode === "create" ? <Plus className="h-4 w-4" /> : <Edit3 className="h-4 w-4" />}
-                  {mode === "create" ? "Create account" : "Save changes"}
+                  {mode === "create"
+                    ? createMethod === "invite"
+                      ? "Create invite"
+                      : "Create account"
+                    : "Save changes"}
                 </Button>
               </div>
             </form>

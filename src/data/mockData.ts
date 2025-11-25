@@ -8,6 +8,7 @@ import {
   UserPlus,
   ShieldPlus,
   SquareTerminal,
+  Users,
   Wallet,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ export const navigation: readonly NavigationItem[] = [
   { label: "Admin settings", icon: Shield },
   { label: "Expiring items", icon: AlertTriangle },
   { label: "Product builder", icon: ShieldPlus },
+  { label: "Team", icon: Users },
 ] satisfies ReadonlyArray<NavigationItem>;
 
 export const cartItems: CartItem[] = [

@@ -10,7 +10,8 @@ export type Section =
   | "Admin settings"
   | "Accounts"
   | "Product builder"
-  | "Expiring items";
+  | "Expiring items"
+  | "Team";
 
 export interface NavigationItem {
   label: Section;

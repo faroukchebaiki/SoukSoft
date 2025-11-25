@@ -30,10 +30,12 @@ import { ExpiringProducts } from "@/pages/ExpiringProducts";
 import { AdminSettings } from "@/pages/AdminSettings";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TeamPage } from "@/pages/TeamPage";
 
 const USER_STORAGE_KEY = "souksoft-active-user";
 const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
 const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-prefs";
+const WORKERS_STORAGE_KEY = "souksoft-workers";
 
 const rolePermissions: Record<UserRole, Section[]> = {
   Manager: [
@@ -43,6 +45,7 @@ const rolePermissions: Record<UserRole, Section[]> = {
     "Settings",
     "Admin settings",
     "Accounts",
+    "Team",
     "Expiring items",
     "Product builder",
   ],
@@ -91,6 +94,47 @@ function readStoredAccounts(): AccountProfile[] {
   }
 }
 
+interface WorkerProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  salary: number;
+  startDate: string;
+  status: "Active" | "On leave" | "Inactive";
+  jobTitle: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  birthDate?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  contractType?: string;
+  weeklyHours?: number;
+  department?: string;
+  photoData?: string;
+  notes?: string;
+  source: "account" | "manual";
+}
+
+function readStoredWorkers(): WorkerProfile[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(WORKERS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as WorkerProfile[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((worker) => ({
+      jobTitle: worker.jobTitle ?? worker.role,
+      contractType: worker.contractType ?? "Full-time",
+      weeklyHours: worker.weeklyHours ?? 40,
+      ...worker,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default function App() {
   const initialAccountsRef = useRef<AccountProfile[] | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -107,6 +151,7 @@ export default function App() {
   );
   const [defaultSectionPrefs] = useState<DefaultSectionPrefs>(() => readDefaultSectionPrefs());
   const [catalogData, setCatalogData] = useState<CatalogProduct[]>(() => getStoredProducts());
+  const [workers, setWorkers] = useState<WorkerProfile[]>(() => readStoredWorkers());
 
   const activeUser = useMemo(
     () => accounts.find((user) => user.id === activeUserId) ?? null,
@@ -144,6 +189,11 @@ export default function App() {
   }, [accounts]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(WORKERS_STORAGE_KEY, JSON.stringify(workers));
+  }, [workers]);
+
+  useEffect(() => {
     if (!accounts.length) {
       setActiveUserId(null);
       return;
@@ -153,6 +203,44 @@ export default function App() {
     }
     setActiveUserId(accounts[0].id);
   }, [accounts, activeUserId]);
+
+  useEffect(() => {
+    setWorkers((prev) => {
+      const existingMap = new Map(prev.map((worker) => [worker.id, worker]));
+      const next: WorkerProfile[] = [];
+      accounts.forEach((account) => {
+        const found = existingMap.get(account.id);
+        next.push({
+          id: account.id,
+          firstName: account.firstName,
+          lastName: account.lastName,
+          role: account.role,
+          salary: found?.salary ?? 0,
+          startDate: found?.startDate ?? new Date().toISOString().slice(0, 10),
+          status: found?.status ?? "Active",
+          jobTitle: found?.jobTitle ?? account.role,
+          email: found?.email ?? account.email,
+          address: found?.address ?? "",
+          birthDate: found?.birthDate ?? "",
+          emergencyContactName: found?.emergencyContactName ?? "",
+          emergencyContactPhone: found?.emergencyContactPhone ?? "",
+          contractType: found?.contractType ?? "Full-time",
+          weeklyHours: found?.weeklyHours ?? 40,
+          department: found?.department ?? "Frontline",
+          phone: found?.phone ?? "",
+          notes: found?.notes ?? "",
+          photoData: found?.photoData,
+          source: "account",
+        });
+        existingMap.delete(account.id);
+      });
+      // keep manual workers
+      existingMap.forEach((worker) => {
+        if (worker.source === "manual") next.push(worker);
+      });
+      return next;
+    });
+  }, [accounts]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -362,6 +450,20 @@ export default function App() {
     return { success: true };
   };
 
+  const handleUpsertWorker = (worker: WorkerProfile) => {
+    setWorkers((prev) => {
+      const exists = prev.some((w) => w.id === worker.id);
+      if (exists) {
+        return prev.map((w) => (w.id === worker.id ? worker : w));
+      }
+      return [...prev, worker];
+    });
+  };
+
+  const handleDeleteWorker = (id: string) => {
+    setWorkers((prev) => prev.filter((w) => w.id !== id));
+  };
+
   const handleLogout = () => {
     setActiveUserId(null);
     setAuthMode("login");
@@ -434,6 +536,18 @@ export default function App() {
             onUpdateAccount={handleUpdateAccount}
             onArchiveAccount={handleArchiveAccount}
             onDeleteAccount={handleDeleteAccount}
+            onGoHome={() => setShowSectionGrid(true)}
+          />
+        );
+      case "Team":
+        return (
+          <TeamPage
+            accounts={accounts}
+            workers={workers}
+            onSaveWorker={(worker) => {
+              handleUpsertWorker(worker);
+            }}
+            onDeleteWorker={handleDeleteWorker}
             onGoHome={() => setShowSectionGrid(true)}
           />
         );

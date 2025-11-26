@@ -15,7 +15,7 @@ dependency_file_paths = ["pnpm-lock.yaml"]
 ecosystem = "node"
 
   [analyzers.meta]
-  environment = "browser"
+  environment = ["browser"]
   module_system = "es-modules"
   dialect = "typescript"
   package_manager = "pnpm"

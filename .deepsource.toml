@@ -13,7 +13,6 @@ enabled = true
 runtime = "node"
 dependency_file_paths = ["pnpm-lock.yaml"]
 ecosystem = "node"
-type = "typescript"
 
   [analyzers.meta]
   environment = "browser"
@@ -26,4 +25,3 @@ type = "typescript"
 name = "rust"
 enabled = true
 root_path = "src-tauri"
-

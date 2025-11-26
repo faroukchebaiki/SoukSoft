@@ -1,0 +1,29 @@
+version = 1
+
+exclude_patterns = [
+  "node_modules/",
+  "dist/",
+  "src-tauri/target/",
+  "public/",
+]
+
+[[analyzers]]
+name = "javascript"
+enabled = true
+runtime = "node"
+dependency_file_paths = ["pnpm-lock.yaml"]
+ecosystem = "node"
+type = "typescript"
+
+  [analyzers.meta]
+  environment = "browser"
+  module_system = "es-modules"
+  dialect = "typescript"
+  package_manager = "pnpm"
+  test_patterns = ["src/**/*.test.ts", "src/**/*.test.tsx"]
+
+[[analyzers]]
+name = "rust"
+enabled = true
+root_path = "src-tauri"
+

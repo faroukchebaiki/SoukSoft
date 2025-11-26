@@ -18,6 +18,25 @@ export interface NavigationItem {
   icon: LucideIcon;
 }
 
+/**
+ * Payload submitted from the login form.
+ */
+export interface LoginPayload {
+  username: string;
+  password: string;
+}
+
+/**
+ * Payload submitted from the registration form.
+ */
+export interface RegisterPayload {
+  firstName: string;
+  lastName: string;
+  username: string;
+  password: string;
+  confirmPassword: string;
+}
+
 export interface CartItem {
   id: string;
   barcode: string;
@@ -112,6 +131,18 @@ export interface CreateAccountPayload {
 export interface UpdateAccountPayload extends CreateAccountPayload {
   id: string;
   archived?: boolean;
+}
+
+/**
+ * Props passed into the authentication entry screen component.
+ */
+export interface AuthScreenProps {
+  mode: "login" | "register";
+  canRegister: boolean;
+  error: string | null;
+  onModeToggle: () => void;
+  onLogin: (payload: LoginPayload) => void;
+  onRegister: (payload: RegisterPayload) => void;
 }
 
 export interface CatalogProduct {

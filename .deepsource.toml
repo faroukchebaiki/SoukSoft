@@ -18,8 +18,6 @@ ecosystem = "node"
   environment = ["browser"]
   module_system = "es-modules"
   dialect = "typescript"
-  package_manager = "pnpm"
-  test_patterns = ["src/**/*.test.ts", "src/**/*.test.tsx"]
 
 [[analyzers]]
 name = "rust"

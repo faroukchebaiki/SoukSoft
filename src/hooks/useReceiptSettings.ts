@@ -14,6 +14,7 @@ const defaultReceiptSettings: ReceiptSettings = {
   footerNote: "Les retours sont acceptés sous 7 jours avec reçu.",
   showPrintPreview: true,
   paperWidth: 80,
+  printerName: undefined,
 };
 
 function readStoredReceiptSettings(): ReceiptSettings {

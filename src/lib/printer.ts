@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 
 interface PrintOptions {
   preview?: boolean;
+  paperWidth?: 58 | 80;
+  printerName?: string;
 }
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -12,6 +14,8 @@ const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
  */
 export async function printReceipt(html: string, options: PrintOptions = {}) {
   const preview = options.preview ?? true;
+  const paperWidth = options.paperWidth ?? 80;
+  const printerName = options.printerName;
 
   if (!isTauri || preview) {
     // Render into an iframe so we only print the provided markup.
@@ -35,5 +39,5 @@ export async function printReceipt(html: string, options: PrintOptions = {}) {
     return;
   }
 
-  await invoke("print_receipt_html", { html });
+  await invoke("print_receipt_html", { html, paperWidth, printerName });
 }

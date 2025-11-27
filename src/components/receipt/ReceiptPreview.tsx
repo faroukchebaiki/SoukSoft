@@ -38,12 +38,17 @@ export function ReceiptPreview({
   compact = false,
   showFooter = true,
 }: ReceiptPreviewProps) {
+  const paperWidthPx = settings.paperWidth === 58 ? 230 : 320;
+
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const discounts = items.reduce((sum, item) => sum + (item.discountValue ?? 0), 0);
   const total = subtotal - discounts;
 
   return (
-    <div className={`receipt-ticket ${className ?? ""}`}>
+    <div
+      className={`receipt-ticket ${className ?? ""}`}
+      style={{ width: `${paperWidthPx}px`, maxWidth: "100%" }}
+    >
       <div className="text-center">
         {settings.logoData ? (
           <img

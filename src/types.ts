@@ -114,6 +114,7 @@ export interface ReceiptSettings {
   logoData?: string;
   showPrintPreview?: boolean;
   paperWidth?: 58 | 80;
+  printerName?: string;
 }
 
 export type UserRole = "Manager" | "Seller" | "Inventory";

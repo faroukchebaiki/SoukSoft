@@ -452,11 +452,11 @@ export function CounterPage({
       .map((style) => style.innerHTML)
       .join("\n");
     const receiptStyles = `
-      @page { size: 80mm auto; margin: 4mm; }
+      @page { size: ${receiptSettings.paperWidth ?? 80}mm auto; margin: 4mm; }
       body { margin: 0; padding: 0; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     `;
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${inlineStyles}${receiptStyles}</style></head><body>${content}</body></html>`;
-  }, []);
+  }, [receiptSettings.paperWidth]);
 
   useEffect(() => {
     if (!basketItems.length) return;
@@ -604,14 +604,14 @@ export function CounterPage({
     const html = buildReceiptHtml();
     const preview = receiptSettings.showPrintPreview !== false;
     try {
-      await printReceipt(html, { preview });
+      await printReceipt(html, { preview, paperWidth: receiptSettings.paperWidth });
     } catch (error) {
       console.error("Print failed", error);
       if (!preview) {
         window.print();
       }
     }
-  }, [buildReceiptHtml, receiptPreviewItems.length, receiptSettings.showPrintPreview]);
+  }, [buildReceiptHtml, receiptPreviewItems.length, receiptSettings.paperWidth, receiptSettings.showPrintPreview]);
 
   const handleDeleteLastItem = useCallback(() => {
     updateActiveBasketItems((prev) => {

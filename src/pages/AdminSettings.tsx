@@ -242,6 +242,21 @@ export function AdminSettings({
                     }
                   />
                 </label>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  Paper width
+                  <select
+                    className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={receiptSettings.paperWidth ?? 80}
+                    onChange={(event) =>
+                      onUpdateReceiptSettings({
+                        paperWidth: Number(event.target.value) === 58 ? 58 : 80,
+                      })
+                    }
+                  >
+                    <option value={80}>80 mm (standard)</option>
+                    <option value={58}>58 mm (narrow)</option>
+                  </select>
+                </label>
                 <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm font-medium transition hover:border-primary/40">
                   <div className="flex flex-col">
                     <span>Show preview before printing</span>
@@ -283,7 +298,7 @@ export function AdminSettings({
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Live preview</CardTitle>
                   <Badge variant="outline" className="rounded-full text-[11px]">
-                    80mm ticket
+                    {receiptSettings.paperWidth ?? 80}mm ticket
                   </Badge>
                 </div>
                 <CardDescription className="text-sm">

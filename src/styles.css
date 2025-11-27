@@ -186,3 +186,62 @@
     }
   }
 }
+
+@layer components {
+  .receipt-ticket {
+    width: 320px;
+    max-width: 100%;
+    margin: 0 auto;
+    background: #fff;
+    color: #111;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    border: 1px solid hsl(var(--border));
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15);
+  }
+
+  .dark .receipt-ticket {
+    border-color: hsl(var(--border-strong));
+  }
+
+  .receipt-divider {
+    border-top: 1px dashed hsl(var(--border-strong));
+    margin: 10px 0;
+  }
+}
+
+@media screen {
+  .print-area {
+    display: none;
+  }
+}
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    inset: 0;
+    margin: 0 auto;
+    width: 320px;
+    max-width: 100%;
+    box-shadow: none !important;
+    border: 0 !important;
+    background: #fff !important;
+  }
+}

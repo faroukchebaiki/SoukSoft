@@ -16,6 +16,7 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import { useActiveUser } from "@/hooks/useActiveUser";
 import { useCatalogProducts } from "@/hooks/useCatalogProducts";
+import { useReceiptSettings } from "@/hooks/useReceiptSettings";
 import { useWorkers } from "@/hooks/useWorkers";
 import { validateLogin } from "@/lib/auth";
 import { readDefaultSectionPrefs, resolvePreferredSection } from "@/lib/preferences";
@@ -29,6 +30,11 @@ export default function App() {
   const { workers, upsertWorker, deleteWorker } = useWorkers(accounts);
   const { catalogData } = useCatalogProducts();
   const { activeUser, setActiveUserId, allowedSections } = useActiveUser(accounts, DEFAULT_USER_ID);
+  const {
+    settings: receiptSettings,
+    updateSettings: updateReceiptSettings,
+    resetSettings: resetReceiptSettings,
+  } = useReceiptSettings();
   const [activeSection, setActiveSection] = useState<Section>(DEFAULT_SECTION);
   const [showSectionGrid, setShowSectionGrid] = useState(true);
   const [defaultSectionPrefs] = useState(() => readDefaultSectionPrefs());
@@ -182,12 +188,15 @@ export default function App() {
                 generalSettingsOptions={generalSettingsOptions}
                 accounts={accounts}
                 workers={workers}
+                receiptSettings={receiptSettings}
                 onSaveWorker={upsertWorker}
                 onDeleteWorker={deleteWorker}
                 onCreateAccount={createAccount}
                 onUpdateAccount={updateAccount}
                 onArchiveAccount={archiveAccount}
                 onDeleteAccount={deleteAccount}
+                onUpdateReceiptSettings={updateReceiptSettings}
+                onResetReceiptSettings={resetReceiptSettings}
                 onGoHome={handleGoHome}
               />
             </div>

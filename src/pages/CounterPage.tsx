@@ -35,15 +35,17 @@ import {
   useState,
 } from "react";
 
+import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatQuantity } from "@/lib/format";
-import type { CartItem, CatalogProduct, CheckoutTotals } from "@/types";
+import type { CartItem, CatalogProduct, CheckoutTotals, ReceiptSettings } from "@/types";
 
 interface CounterPageProps {
   availableProducts: CatalogProduct[];
   initialCartItems?: CartItem[];
   onGoHome?: () => void;
   cashierName?: string;
+  receiptSettings: ReceiptSettings;
 }
 
 type SelectionRange = { start: number; end: number };
@@ -102,6 +104,8 @@ interface BasketHistoryEntry {
   items: CartItem[];
   total: number;
   clientName: string;
+  cashierName: string;
+  paymentMethod?: string;
 }
 
 function createBasketId() {
@@ -155,6 +159,7 @@ export function CounterPage({
   initialCartItems = [],
   onGoHome,
   cashierName = "FirstLastName",
+  receiptSettings,
 }: CounterPageProps) {
   const [baskets, setBaskets] = useState<PendingBasket[]>(() => [
     createEmptyBasket(initialCartItems),
@@ -413,6 +418,31 @@ export function CounterPage({
   const isHistoryPreview = activeHistoryEntry !== null;
   const basketPositionLabel = isHistoryPreview ? displayedBasketLabel : "Panier";
   const basketPositionValue = isHistoryPreview ? "" : `${activeBasketIndex + 1}/${Math.max(1, baskets.length)}`;
+  const receiptPreviewItems = useMemo<ReceiptPreviewItem[]>(
+    () =>
+      displayedItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        qty: item.qty,
+        unit: item.unit,
+        price: item.sellPrice ?? item.price,
+        discountValue: item.discountValue,
+        sku: item.sku,
+      })),
+    [displayedItems],
+  );
+  const receiptMeta = useMemo(
+    () => ({
+      receiptId: activeHistoryEntry?.id ?? activeBasketId,
+      cashier: activeHistoryEntry?.cashierName ?? displayedCashierName,
+      customer: displayedClientName,
+      paymentMethod: activeHistoryEntry?.paymentMethod ?? "Cash",
+      completedAt: activeHistoryEntry
+        ? new Date(activeHistoryEntry.createdAt).toLocaleString("fr-DZ")
+        : new Date().toLocaleString("fr-DZ"),
+    }),
+    [activeBasketId, activeHistoryEntry, displayedCashierName, displayedClientName],
+  );
 
   useEffect(() => {
     if (!basketItems.length) return;
@@ -534,6 +564,8 @@ export function CounterPage({
       items: snapshotItems,
       total,
       clientName: selectedClient || "Standard client",
+      cashierName: cashierName || "FirstLastName",
+      paymentMethod: "Cash",
     };
     setHistoryBaskets((prev) => {
       const filtered = selectedHistoryId ? prev.filter((hist) => hist.id !== selectedHistoryId) : prev;
@@ -554,8 +586,9 @@ export function CounterPage({
   );
 
   const handlePrintReceipt = useCallback(() => {
+    if (receiptPreviewItems.length === 0) return;
     window.print();
-  }, []);
+  }, [receiptPreviewItems.length]);
 
   const handleDeleteLastItem = useCallback(() => {
     updateActiveBasketItems((prev) => {
@@ -833,6 +866,17 @@ export function CounterPage({
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="print-area">
+        <ReceiptPreview
+          settings={receiptSettings}
+          items={receiptPreviewItems}
+          receiptId={receiptMeta.receiptId}
+          cashier={receiptMeta.cashier}
+          customer={receiptMeta.customer}
+          paymentMethod={receiptMeta.paymentMethod}
+          completedAt={receiptMeta.completedAt}
+        />
+      </div>
       <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3 md:p-4">
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="flex-shrink-0 rounded-2xl border border-strong bg-panel p-4 shadow-sm">

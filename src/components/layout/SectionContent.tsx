@@ -14,6 +14,7 @@ import type {
   PurchaseHistoryEntry,
   Section,
   SettingOption,
+  ReceiptSettings,
   WorkerProfile,
   UpdateAccountPayload,
 } from "@/types";
@@ -31,12 +32,15 @@ export function SectionContent({
   generalSettingsOptions,
   accounts,
   workers,
+  receiptSettings,
   onSaveWorker,
   onDeleteWorker,
   onCreateAccount,
   onUpdateAccount,
   onArchiveAccount,
   onDeleteAccount,
+  onUpdateReceiptSettings,
+  onResetReceiptSettings,
   onGoHome,
 }: {
   section: Section;
@@ -48,12 +52,15 @@ export function SectionContent({
   generalSettingsOptions: SettingOption[];
   accounts: AccountProfile[];
   workers: WorkerProfile[];
+  receiptSettings: ReceiptSettings;
   onSaveWorker: (worker: WorkerProfile) => void;
   onDeleteWorker: (id: string) => void;
   onCreateAccount: (payload: CreateAccountPayload) => { success: boolean; error?: string; account?: AccountProfile };
   onUpdateAccount: (payload: UpdateAccountPayload) => { success: boolean; error?: string };
   onArchiveAccount: (id: string, archived: boolean) => void;
   onDeleteAccount: (id: string) => { success: boolean; error?: string };
+  onUpdateReceiptSettings: (partial: Partial<ReceiptSettings>) => void;
+  onResetReceiptSettings: () => void;
   onGoHome: () => void;
 }) {
   if (!allowedSections.includes(section)) {
@@ -74,6 +81,7 @@ export function SectionContent({
           availableProducts={catalogData}
           onGoHome={onGoHome}
           cashierName={activeUser.name}
+          receiptSettings={receiptSettings}
         />
       );
     case "All items":
@@ -95,7 +103,15 @@ export function SectionContent({
         />
       );
     case "Admin settings":
-      return <AdminSettings options={generalSettingsOptions} onGoHome={onGoHome} />;
+      return (
+        <AdminSettings
+          options={generalSettingsOptions}
+          receiptSettings={receiptSettings}
+          onUpdateReceiptSettings={onUpdateReceiptSettings}
+          onResetReceiptSettings={onResetReceiptSettings}
+          onGoHome={onGoHome}
+        />
+      );
     case "Accounts":
       return (
         <AccountsPage

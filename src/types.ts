@@ -102,6 +102,18 @@ export interface SettingOption {
   actionLabel: string;
 }
 
+export interface ReceiptSettings {
+  storeName: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  phone?: string;
+  taxId?: string;
+  website?: string;
+  thanksMessage?: string;
+  footerNote?: string;
+  logoData?: string;
+}
+
 export type UserRole = "Manager" | "Seller" | "Inventory";
 
 export interface AccountProfile {

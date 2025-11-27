@@ -1,24 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Home, Shield, ShieldPlus } from "lucide-react";
+import { Building2, Home, ReceiptText, Shield, ShieldPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
-import type { SettingOption } from "@/types";
+import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
+import type { ReceiptSettings, SettingOption } from "@/types";
 
 interface AdminSettingsProps {
   options: SettingOption[];
+  receiptSettings: ReceiptSettings;
+  onUpdateReceiptSettings: (partial: Partial<ReceiptSettings>) => void;
+  onResetReceiptSettings: () => void;
   onGoHome?: () => void;
 }
 
-const tabLabels = ["Store info", "Permissions", "Tab 3", "Tab 4"] as const;
+const tabLabels = ["Store info", "Receipts", "Permissions"] as const;
 
 const defaultSections = ["Counter", "All items", "History", "Settings", "Admin settings", "Accounts"];
 
-export function AdminSettings({ options, onGoHome }: AdminSettingsProps) {
+const demoReceiptItems: ReceiptPreviewItem[] = [
+  { name: "Kabylie olive oil 1L", qty: 2, unit: "pcs", price: 950, sku: "PAN-OLI-11" },
+  { name: "Fresh mint bunch", qty: 3, unit: "pcs", price: 120, sku: "PROD-HER-12" },
+  { name: "Medjool dates", qty: 1.2, unit: "kg", price: 1600, sku: "PAN-DAT-22" },
+];
+
+export function AdminSettings({
+  options,
+  receiptSettings,
+  onUpdateReceiptSettings,
+  onResetReceiptSettings,
+  onGoHome,
+}: AdminSettingsProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabLabels)[number]>("Store info");
-  const [storeName, setStoreName] = useState("SoukSoft HQ");
-  const [storeAddress, setStoreAddress] = useState("12 Rue Emir Abdelkader, Algiers");
   const [timezone, setTimezone] = useState("Africa/Algiers");
   const [currency, setCurrency] = useState("DZD");
   const [customRoles] = useState([
@@ -107,16 +121,24 @@ export function AdminSettings({ options, onGoHome }: AdminSettingsProps) {
                   Store name
                   <input
                     className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    value={storeName}
-                    onChange={(event) => setStoreName(event.target.value)}
+                    value={receiptSettings.storeName}
+                    onChange={(event) => onUpdateReceiptSettings({ storeName: event.target.value })}
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium">
-                  Address
+                  Address line 1
                   <input
                     className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    value={storeAddress}
-                    onChange={(event) => setStoreAddress(event.target.value)}
+                    value={receiptSettings.addressLine1 ?? ""}
+                    onChange={(event) => onUpdateReceiptSettings({ addressLine1: event.target.value })}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  Address line 2
+                  <input
+                    className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={receiptSettings.addressLine2 ?? ""}
+                    onChange={(event) => onUpdateReceiptSettings({ addressLine2: event.target.value })}
                   />
                 </label>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -169,6 +191,98 @@ export function AdminSettings({ options, onGoHome }: AdminSettingsProps) {
                       </Button>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "Receipts" ? (
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-4 rounded-xl border bg-card/70 p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <ReceiptText className="h-4 w-4 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Receipt layout</CardTitle>
+                    <CardDescription>What customers see on printed tickets.</CardDescription>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-sm font-medium">
+                    Phone
+                    <input
+                      className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={receiptSettings.phone ?? ""}
+                      onChange={(event) => onUpdateReceiptSettings({ phone: event.target.value })}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm font-medium">
+                    Website
+                    <input
+                      className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={receiptSettings.website ?? ""}
+                      onChange={(event) => onUpdateReceiptSettings({ website: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  Tax ID / RC
+                  <input
+                    className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={receiptSettings.taxId ?? ""}
+                    onChange={(event) => onUpdateReceiptSettings({ taxId: event.target.value })}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  Thanks message
+                  <input
+                    className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={receiptSettings.thanksMessage ?? ""}
+                    onChange={(event) =>
+                      onUpdateReceiptSettings({ thanksMessage: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  Footer note
+                  <textarea
+                    className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    rows={3}
+                    value={receiptSettings.footerNote ?? ""}
+                    onChange={(event) =>
+                      onUpdateReceiptSettings({ footerNote: event.target.value })
+                    }
+                  />
+                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>Changes are saved automatically for the POS.</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={onResetReceiptSettings}>
+                      Reset defaults
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-xl border bg-card/70 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Live preview</CardTitle>
+                  <Badge variant="outline" className="rounded-full text-[11px]">
+                    80mm ticket
+                  </Badge>
+                </div>
+                <CardDescription className="text-sm">
+                  Matches what prints from the register when you tap “Reçu”.
+                </CardDescription>
+                <div className="max-h-[520px] overflow-auto px-1">
+                  <ReceiptPreview
+                    settings={receiptSettings}
+                    items={demoReceiptItems}
+                    cashier="Lina B."
+                    customer="Walk-in guest"
+                    paymentMethod="Cash"
+                    completedAt="12:45"
+                    receiptId="RCPT-1001"
+                  />
                 </div>
               </div>
             </div>
@@ -283,17 +397,6 @@ export function AdminSettings({ options, onGoHome }: AdminSettingsProps) {
             </div>
           ) : null}
 
-          {activeTab === "Tab 3" ? (
-            <div className="flex h-full items-center justify-center rounded-xl border bg-card/70 text-sm text-muted-foreground">
-              Placeholder tab 3 — drop in your next control here.
-            </div>
-          ) : null}
-
-          {activeTab === "Tab 4" ? (
-            <div className="flex h-full items-center justify-center rounded-xl border bg-card/70 text-sm text-muted-foreground">
-              Placeholder tab 4 — ready for future settings.
-            </div>
-          ) : null}
         </CardContent>
       </Card>
     </main>

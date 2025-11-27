@@ -9,6 +9,11 @@ export const USER_STORAGE_KEY = "souksoft-active-user";
 export const ACCOUNTS_STORAGE_KEY = "souksoft-accounts";
 
 /**
+ * Key for persisting receipt layout and branding.
+ */
+export const RECEIPT_SETTINGS_KEY = "souksoft-receipt-settings";
+
+/**
  * Key for remembering per-user preferred landing sections.
  */
 export const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-prefs";

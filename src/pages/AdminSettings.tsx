@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
 import type { ReceiptSettings, SettingOption } from "@/types";
+import { invoke } from "@tauri-apps/api/core";
 
 interface AdminSettingsProps {
   options: SettingOption[];
@@ -49,6 +50,9 @@ export function AdminSettings({
     karim: ["Counter", "History"],
     nadia: ["All items", "Expiring items", "Product builder"],
   }));
+  const [printers, setPrinters] = useState<string[]>([]);
+  const [printersLoading, setPrintersLoading] = useState(false);
+  const [printersError, setPrintersError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!onGoHome) return;
@@ -58,6 +62,21 @@ export function AdminSettings({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onGoHome]);
+
+  const loadPrinters = async () => {
+    setPrintersLoading(true);
+    setPrintersError(null);
+    try {
+      const result = await invoke<string[]>("list_printers");
+      setPrinters(result ?? []);
+    } catch (error) {
+      setPrintersError(
+        error instanceof Error ? error.message : "Could not load printers. Check permissions."
+      );
+    } finally {
+      setPrintersLoading(false);
+    }
+  };
 
   const renderTabs = useMemo(
     () =>
@@ -257,6 +276,47 @@ export function AdminSettings({
                     <option value={58}>58 mm (narrow)</option>
                   </select>
                 </label>
+                <div className="space-y-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">
+                      Receipt printer
+                      <div className="text-xs font-normal text-muted-foreground">
+                        Choose which device receives receipts.
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={loadPrinters} disabled={printersLoading}>
+                      {printersLoading ? "Loading…" : "Select printer"}
+                    </Button>
+                  </div>
+                  {printersError ? (
+                    <p className="text-xs text-destructive">{printersError}</p>
+                  ) : null}
+                  {printers.length > 0 ? (
+                    <select
+                      className="mt-1 w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm font-normal transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={receiptSettings.printerName ?? ""}
+                      onChange={(event) =>
+                        onUpdateReceiptSettings({
+                          printerName: event.target.value || undefined,
+                        })
+                      }
+                    >
+                      <option value="">System default</option>
+                      {printers.map((printer) => (
+                        <option key={printer} value={printer}>
+                          {printer}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                  {receiptSettings.printerName ? (
+                    <p className="text-xs text-muted-foreground">
+                      Using: <span className="font-semibold">{receiptSettings.printerName}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Using system default printer.</p>
+                  )}
+                </div>
                 <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm font-medium transition hover:border-primary/40">
                   <div className="flex flex-col">
                     <span>Show preview before printing</span>

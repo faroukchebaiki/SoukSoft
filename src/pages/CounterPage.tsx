@@ -604,7 +604,11 @@ export function CounterPage({
     const html = buildReceiptHtml();
     const preview = receiptSettings.showPrintPreview !== false;
     try {
-      await printReceipt(html, { preview, paperWidth: receiptSettings.paperWidth });
+      await printReceipt(html, {
+        preview,
+        paperWidth: receiptSettings.paperWidth,
+        printerName: receiptSettings.printerName,
+      });
     } catch (error) {
       console.error("Print failed", error);
       if (!preview) {

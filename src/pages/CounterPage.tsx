@@ -38,6 +38,7 @@ import {
 import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatQuantity } from "@/lib/format";
+import { printReceipt } from "@/lib/printer";
 import type { CartItem, CatalogProduct, CheckoutTotals, ReceiptSettings } from "@/types";
 
 interface CounterPageProps {
@@ -189,6 +190,7 @@ export function CounterPage({
   const [isBasketOverviewOpen, setBasketOverviewOpen] = useState(false);
   const scannerInputRef = useRef<HTMLInputElement>(null);
   const basketTableBodyRef = useRef<HTMLTableSectionElement>(null);
+  const printAreaRef = useRef<HTMLDivElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const totalInputRef = useRef<HTMLInputElement>(null);
@@ -436,13 +438,25 @@ export function CounterPage({
       receiptId: activeHistoryEntry?.id ?? activeBasketId,
       cashier: activeHistoryEntry?.cashierName ?? displayedCashierName,
       customer: displayedClientName,
-      paymentMethod: activeHistoryEntry?.paymentMethod ?? "Cash",
+      paymentMethod: "Cash",
       completedAt: activeHistoryEntry
         ? new Date(activeHistoryEntry.createdAt).toLocaleString("fr-DZ")
         : new Date().toLocaleString("fr-DZ"),
     }),
     [activeBasketId, activeHistoryEntry, displayedCashierName, displayedClientName],
   );
+
+  const buildReceiptHtml = useCallback(() => {
+    const content = printAreaRef.current?.innerHTML ?? "";
+    const inlineStyles = Array.from(document.querySelectorAll("style"))
+      .map((style) => style.innerHTML)
+      .join("\n");
+    const receiptStyles = `
+      @page { size: 80mm auto; margin: 4mm; }
+      body { margin: 0; padding: 0; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    `;
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${inlineStyles}${receiptStyles}</style></head><body>${content}</body></html>`;
+  }, []);
 
   useEffect(() => {
     if (!basketItems.length) return;
@@ -585,10 +599,19 @@ export function CounterPage({
     [],
   );
 
-  const handlePrintReceipt = useCallback(() => {
+  const handlePrintReceipt = useCallback(async () => {
     if (receiptPreviewItems.length === 0) return;
-    window.print();
-  }, [receiptPreviewItems.length]);
+    const html = buildReceiptHtml();
+    const preview = receiptSettings.showPrintPreview !== false;
+    try {
+      await printReceipt(html, { preview });
+    } catch (error) {
+      console.error("Print failed", error);
+      if (!preview) {
+        window.print();
+      }
+    }
+  }, [buildReceiptHtml, receiptPreviewItems.length, receiptSettings.showPrintPreview]);
 
   const handleDeleteLastItem = useCallback(() => {
     updateActiveBasketItems((prev) => {
@@ -866,7 +889,7 @@ export function CounterPage({
 
   return (
     <div className="page-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <div className="print-area">
+      <div className="print-area" ref={printAreaRef}>
         <ReceiptPreview
           settings={receiptSettings}
           items={receiptPreviewItems}

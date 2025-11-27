@@ -33,9 +33,6 @@ export function ReceiptPreview({
   settings,
   items,
   receiptId,
-  cashier,
-  customer,
-  paymentMethod,
   completedAt,
   className,
   compact = false,
@@ -79,24 +76,6 @@ export function ReceiptPreview({
           <span>Reçu</span>
           <span className="font-semibold">{receiptId ?? "En cours"}</span>
         </div>
-        {cashier ? (
-          <div className="flex justify-between">
-            <span>Caissier</span>
-            <span>{cashier}</span>
-          </div>
-        ) : null}
-        {customer ? (
-          <div className="flex justify-between">
-            <span>Client</span>
-            <span>{customer}</span>
-          </div>
-        ) : null}
-        {paymentMethod ? (
-          <div className="flex justify-between">
-            <span>Paiement</span>
-            <span>{paymentMethod}</span>
-          </div>
-        ) : null}
         {completedAt ? (
           <div className="flex justify-between">
             <span>Date</span>

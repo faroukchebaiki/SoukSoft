@@ -112,6 +112,8 @@ export interface ReceiptSettings {
   thanksMessage?: string;
   footerNote?: string;
   logoData?: string;
+  showPrintPreview?: boolean;
+  paperWidth?: 58 | 80;
 }
 
 export type UserRole = "Manager" | "Seller" | "Inventory";

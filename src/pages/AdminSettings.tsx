@@ -242,6 +242,22 @@ export function AdminSettings({
                     }
                   />
                 </label>
+                <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm font-medium transition hover:border-primary/40">
+                  <div className="flex flex-col">
+                    <span>Show preview before printing</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Toggle off to send receipts directly to the paired printer.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={receiptSettings.showPrintPreview !== false}
+                    onChange={(event) =>
+                      onUpdateReceiptSettings({ showPrintPreview: event.target.checked })
+                    }
+                  />
+                </label>
                 <label className="flex flex-col gap-1 text-sm font-medium">
                   Footer note
                   <textarea

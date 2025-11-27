@@ -12,6 +12,8 @@ const defaultReceiptSettings: ReceiptSettings = {
   taxId: "RC-00001234",
   thanksMessage: "Merci pour votre visite !",
   footerNote: "Les retours sont acceptés sous 7 jours avec reçu.",
+  showPrintPreview: true,
+  paperWidth: 80,
 };
 
 function readStoredReceiptSettings(): ReceiptSettings {

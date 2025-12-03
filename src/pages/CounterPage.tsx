@@ -615,7 +615,13 @@ export function CounterPage({
         window.print();
       }
     }
-  }, [buildReceiptHtml, receiptPreviewItems.length, receiptSettings.paperWidth, receiptSettings.showPrintPreview]);
+  }, [
+    buildReceiptHtml,
+    receiptPreviewItems.length,
+    receiptSettings.paperWidth,
+    receiptSettings.printerName,
+    receiptSettings.showPrintPreview,
+  ]);
 
   const handleDeleteLastItem = useCallback(() => {
     updateActiveBasketItems((prev) => {

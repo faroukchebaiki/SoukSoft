@@ -16,7 +16,7 @@ import {
   Plus,
   Printer,
   RotateCcw,
-  ScanLine,
+  Search,
   ShoppingBag,
   Star,
   Tag,
@@ -900,45 +900,6 @@ export function CounterPage({
                 );
               })}
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-3 py-2 text-xs shadow-inner">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
-                Le fond de la caisse
-              </span>
-              <form
-                className="ml-auto flex flex-1 flex-wrap items-center gap-2 text-muted-foreground"
-                onSubmit={handleScanSubmit}
-              >
-                <div className="flex flex-1 items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-1 text-sm">
-                  <Barcode className="h-4 w-4" />
-                  <input
-                    ref={scannerInputRef}
-                    className="w-full bg-transparent text-sm outline-none"
-                    placeholder="Scanner le code barre"
-                    value={scannerInput}
-                    onChange={(event) => setScannerInput(event.target.value)}
-                    disabled={!scannerListening}
-                  />
-                </div>
-                <input
-                  type="number"
-                  min={1}
-                  value={scannerQty}
-                  onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
-                  className="w-16 rounded-2xl border border-strong bg-background px-2 py-1 text-center text-xs"
-                />
-                <Button size="sm" type="submit" disabled={!scannerListening}>
-                  Ajouter
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setScannerListening((prev) => !prev)}
-                >
-                  {scannerListening ? "Pause" : "Reprendre"}
-                </Button>
-              </form>
-            </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-2 py-1 text-[11px] shadow-inner">
               {topTabs.map((tab) => {
                 const Icon = tab.icon ?? Bell;
@@ -959,8 +920,8 @@ export function CounterPage({
                   </button>
                 );
               })}
-              <div className="ml-auto flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-1 text-muted-foreground">
-                <ScanLine className="h-4 w-4" />
+              <div className="flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-1 text-muted-foreground">
+                <Search className="h-4 w-4" />
                 <input
                   className="bg-transparent text-sm outline-none"
                   placeholder="Rechercher un produit"
@@ -968,6 +929,41 @@ export function CounterPage({
                   onChange={(event) => setProductSearch(event.target.value)}
                 />
               </div>
+              <form
+                className="ml-auto flex flex-wrap items-center gap-2 text-muted-foreground"
+                onSubmit={handleScanSubmit}
+              >
+                <div className="flex items-center gap-2 rounded-2xl border border-emerald-500 bg-background px-3 py-1 text-sm shadow-inner">
+                  <Barcode className="h-4 w-4 text-emerald-500" />
+                  <input
+                    ref={scannerInputRef}
+                    className="w-48 bg-transparent text-sm outline-none"
+                    placeholder="Scannez un code-barres ici"
+                    value={scannerInput}
+                    onChange={(event) => setScannerInput(event.target.value)}
+                    disabled={!scannerListening}
+                  />
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  value={scannerQty}
+                  onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
+                  className="w-16 rounded-2xl border border-strong bg-background px-2 py-1 text-center text-xs"
+                  disabled={!scannerListening}
+                />
+                <Button size="sm" type="submit" disabled={!scannerListening}>
+                  Ajouter
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setScannerListening((prev) => !prev)}
+                >
+                  {scannerListening ? "Pause" : "Scan on"}
+                </Button>
+              </form>
             </div>
           </div>
 

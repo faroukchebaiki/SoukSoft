@@ -589,7 +589,14 @@ export function CounterPage({
     updateActiveBasketItems(() => []);
     focusScannerInput();
     setSelectedItemId(null);
-  }, [basketItems, focusScannerInput, selectedClient, selectedHistoryId, updateActiveBasketItems]);
+  }, [
+    basketItems,
+    cashierName,
+    focusScannerInput,
+    selectedClient,
+    selectedHistoryId,
+    updateActiveBasketItems,
+  ]);
 
   const handleSelectHistoryEntry = useCallback(
     (entry: BasketHistoryEntry) => {

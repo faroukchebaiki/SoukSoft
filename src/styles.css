@@ -227,7 +227,7 @@
   }
 
   body {
-    background: #fff !important;
+    background: #fff;
   }
 
   body * {
@@ -245,8 +245,8 @@
     margin: 0 auto;
     width: 320px;
     max-width: 100%;
-    box-shadow: none !important;
-    border: 0 !important;
-    background: #fff !important;
+    box-shadow: none;
+    border: 0;
+    background: #fff;
   }
 }

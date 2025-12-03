@@ -13,6 +13,8 @@ import {
   Home,
   LayoutGrid,
   PackagePlus,
+  Pause,
+  Play,
   Plus,
   Printer,
   RotateCcw,
@@ -171,7 +173,6 @@ export function CounterPage({
   const selectedClient = "Standard client";
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
-  const [scannerQty, setScannerQty] = useState(1);
   const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTab, setActiveTab] = useState(topTabs[0].label);
@@ -509,12 +510,11 @@ export function CounterPage({
       if (!scannerListening || !scannerInput.trim()) return;
       const product = availableProducts.find((item) => item.barcode === scannerInput.trim());
       if (!product) return;
-      upsertItem(product, scannerQty);
+      upsertItem(product, 1);
       setScannerInput("");
-      setScannerQty(1);
       focusScannerInput();
     },
-    [availableProducts, scannerInput, scannerListening, scannerQty, upsertItem, focusScannerInput],
+    [availableProducts, scannerInput, scannerListening, upsertItem, focusScannerInput],
   );
 
   const handleProductCardClick = useCallback(
@@ -944,24 +944,15 @@ export function CounterPage({
                     disabled={!scannerListening}
                   />
                 </div>
-                <input
-                  type="number"
-                  min={1}
-                  value={scannerQty}
-                  onChange={(event) => setScannerQty(Math.max(1, Number(event.target.value) || 1))}
-                  className="w-16 rounded-2xl border border-strong bg-background px-2 py-1 text-center text-xs"
-                  disabled={!scannerListening}
-                />
-                <Button size="sm" type="submit" disabled={!scannerListening}>
-                  Ajouter
-                </Button>
                 <Button
                   type="button"
-                  size="sm"
-                  variant="secondary"
+                  size="icon"
+                  variant="outline"
+                  className="h-9 w-9"
                   onClick={() => setScannerListening((prev) => !prev)}
+                  aria-label={scannerListening ? "Mettre en pause le scanner" : "Relancer le scanner"}
                 >
-                  {scannerListening ? "Pause" : "Scan on"}
+                  {scannerListening ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </Button>
               </form>
             </div>

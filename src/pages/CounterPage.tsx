@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Barcode,
   Bell,
-  Calculator,
   CheckCircle2,
   ClipboardList,
   CreditCard,
@@ -169,16 +168,13 @@ export function CounterPage({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [historyBaskets, setHistoryBaskets] = useState<BasketHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState("Standard client");
+  const selectedClient = "Standard client";
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [scannerQty, setScannerQty] = useState(1);
   const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTab, setActiveTab] = useState(topTabs[0].label);
-  const [manualMode, setManualMode] = useState(false);
-  const [manualProductId, setManualProductId] = useState(availableProducts[0]?.id ?? "");
-  const [manualQty, setManualQty] = useState(1);
   const [isPricePanelOpen, setIsPricePanelOpen] = useState(false);
   const [priceInput, setPriceInput] = useState("");
   const [quantityInput, setQuantityInput] = useState("");
@@ -294,19 +290,6 @@ export function CounterPage({
       scannerInputRef.current?.focus();
     }
   }, [scannerListening]);
-
-  useEffect(() => {
-    if (!availableProducts.length) {
-      setManualProductId("");
-      return;
-    }
-    setManualProductId((current) => {
-      if (current && availableProducts.some((product) => product.id === current)) {
-        return current;
-      }
-      return availableProducts[0]?.id ?? "";
-    });
-  }, [availableProducts]);
   useEffect(() => {
     if (!selectedItemId) return;
     const stillExists = basketItems.some((item) => item.id === selectedItemId);
@@ -541,20 +524,6 @@ export function CounterPage({
     [upsertItem],
   );
 
-  const handleManualAdd = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!manualProductId) return;
-      const product = availableProducts.find((item) => item.id === manualProductId);
-      if (!product) return;
-      upsertItem(product, manualQty);
-      setManualQty(1);
-      setManualMode(false);
-      scannerInputRef.current?.focus();
-    },
-    [availableProducts, manualProductId, manualQty, upsertItem],
-  );
-
   const handleCancelBasket = useCallback(() => {
     if (selectedHistoryId) {
       setSelectedHistoryId(null);
@@ -593,7 +562,6 @@ export function CounterPage({
     basketItems,
     cashierName,
     focusScannerInput,
-    selectedClient,
     selectedHistoryId,
     updateActiveBasketItems,
   ]);
@@ -834,10 +802,6 @@ export function CounterPage({
         case "f1":
           event.preventDefault();
           focusScannerInput();
-          break;
-        case "f2":
-          event.preventDefault();
-          setManualMode((prev) => !prev);
           break;
         case "f3":
           event.preventDefault();
@@ -1324,81 +1288,6 @@ export function CounterPage({
                   </tbody>
                 </table>
               </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-3 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-1 items-center rounded-2xl border border-emerald-500 bg-background px-3 py-1">
-                  <ScanLine className="h-4 w-4 text-emerald-500" />
-                  <input
-                    className="w-full bg-transparent text-sm outline-none"
-                    placeholder="Client (Standard ou nom)"
-                    value={selectedClient}
-                    onChange={(event) => setSelectedClient(event.target.value)}
-                  />
-                </div>
-                <Button size="sm" variant="secondary">
-                  <Calculator className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2">
-                <label className="flex flex-col gap-1">
-                  Livreur
-                  <select className="rounded-xl border border-strong bg-background px-2 py-1">
-                    <option>sahiheha</option>
-                    <option>khadeeja</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  Client
-                  <input
-                    className="rounded-xl border border-strong bg-background px-2 py-1"
-                    placeholder="Standard client"
-                    value={selectedClient}
-                    onChange={(event) => setSelectedClient(event.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  + Client
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => setManualMode((prev) => !prev)}>
-                  {manualMode ? "Masquer manuel" : "Ajouter manuel"}
-                </Button>
-              </div>
-              {manualMode ? (
-                <form className="mt-3 grid gap-2 text-[11px]" onSubmit={handleManualAdd}>
-                  <label className="flex flex-col gap-1">
-                    Produit
-                    <select
-                      value={manualProductId}
-                      onChange={(event) => setManualProductId(event.target.value)}
-                      className="rounded-xl border border-strong bg-background px-2 py-1"
-                    >
-                      {availableProducts.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} · {formatCurrency(product.price)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    Quantité
-                    <input
-                      type="number"
-                      min={1}
-                      value={manualQty}
-                      onChange={(event) => setManualQty(Math.max(1, Number(event.target.value) || 1))}
-                      className="rounded-xl border border-strong bg-background px-2 py-1"
-                    />
-                  </label>
-                  <Button type="submit" size="sm" className="w-full">
-                    Ajouter au ticket
-                  </Button>
-                </form>
-              ) : null}
             </div>
 
             <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-4 min-h-[200px]">

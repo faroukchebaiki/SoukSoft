@@ -86,7 +86,7 @@ async fn print_receipt_html(
 ) -> Result<(), String> {
     use std::{fs, path::PathBuf, process::Command};
 
-    let temp_dir = tauri::api::path::temp_dir();
+    let temp_dir = std::env::temp_dir();
     let path: PathBuf = temp_dir.join("souksoft-receipt.html");
     fs::write(&path, html).map_err(|err| format!("Failed to write receipt: {err}"))?;
 

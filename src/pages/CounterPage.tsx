@@ -7,19 +7,16 @@ import {
   Bell,
   CheckCircle2,
   ClipboardList,
-  CreditCard,
-  FolderCog,
   HandCoins,
   Home,
   LayoutGrid,
-  PackagePlus,
   Pause,
   Play,
+  Settings,
   Plus,
   Printer,
   RotateCcw,
-  Search,
-  ShoppingBag,
+  UserPlus,
   Star,
   Tag,
   Trash2,
@@ -51,14 +48,6 @@ interface CounterPageProps {
 }
 
 type SelectionRange = { start: number; end: number };
-
-const toolbarActions = [
-  { label: "Produits", shortcut: "F1", icon: ShoppingBag },
-  { label: "Facture Achat", shortcut: "F2", icon: PackagePlus },
-  { label: "Réglage", shortcut: "F3", icon: FolderCog },
-  { label: "Charges", shortcut: "F7", icon: CreditCard },
-  { label: "Clôture", shortcut: "F9", icon: ClipboardList },
-];
 
 const topTabs = [
   { label: "Favoris", icon: Star },
@@ -173,7 +162,6 @@ export function CounterPage({
   const selectedClient = "Standard client";
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
-  const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTab, setActiveTab] = useState(topTabs[0].label);
   const [isPricePanelOpen, setIsPricePanelOpen] = useState(false);
@@ -331,16 +319,10 @@ export function CounterPage({
   }, [availableProducts]);
 
   const filteredProducts = useMemo(() => {
-    const normalized = productSearch.trim().toLowerCase();
     return availableProducts.filter((product) => {
-      const matchesCategory = activeCategory === "all" || product.category === activeCategory;
-      const matchesQuery =
-        normalized.length === 0 ||
-        product.name.toLowerCase().includes(normalized) ||
-        product.sku.toLowerCase().includes(normalized);
-      return matchesCategory && matchesQuery;
+      return activeCategory === "all" || product.category === activeCategory;
     });
-  }, [availableProducts, productSearch, activeCategory]);
+  }, [availableProducts, activeCategory]);
 
   const stockOverview = useMemo(() => {
     const categoryMap = new Map<string, { category: string; skuCount: number; totalQty: number; value: number }>();
@@ -884,21 +866,23 @@ export function CounterPage({
       <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3 md:p-4">
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="flex-shrink-0 rounded-2xl border border-strong bg-panel p-4 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {toolbarActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={action.label}
-                    type="button"
-                    className="flex items-center gap-2 rounded-xl border border-strong bg-panel-soft px-3 py-2 text-foreground shadow-sm transition hover:border-strong hover:text-emerald-600"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{action.label}</span>
-                    <span className="text-[10px] font-bold text-emerald-500">{action.shortcut}</span>
-                  </button>
-                );
-              })}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl border-strong bg-panel-soft px-3 py-2 hover:border-emerald-500"
+                aria-label="Ouvrir les réglages"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-2xl border-strong bg-panel-soft px-4 py-2 text-sm font-semibold hover:border-emerald-500"
+              >
+                <UserPlus className="h-4 w-4" />
+                Ajouter un client
+              </Button>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-2 py-1 text-[11px] shadow-inner">
               {topTabs.map((tab) => {
@@ -920,15 +904,6 @@ export function CounterPage({
                   </button>
                 );
               })}
-              <div className="flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-1 text-muted-foreground">
-                <Search className="h-4 w-4" />
-                <input
-                  className="bg-transparent text-sm outline-none"
-                  placeholder="Rechercher un produit"
-                  value={productSearch}
-                  onChange={(event) => setProductSearch(event.target.value)}
-                />
-              </div>
               <form
                 className="ml-auto flex flex-wrap items-center gap-2 text-muted-foreground"
                 onSubmit={handleScanSubmit}

@@ -5,6 +5,8 @@ import {
   ArrowUp,
   Barcode,
   Bell,
+  Boxes,
+  ChevronDown,
   CheckCircle2,
   ClipboardList,
   HandCoins,
@@ -16,6 +18,7 @@ import {
   Plus,
   Printer,
   RotateCcw,
+  Search,
   UserPlus,
   Star,
   Tag,
@@ -51,7 +54,7 @@ type SelectionRange = { start: number; end: number };
 
 const topTabs = [
   { label: "Favoris", icon: Star },
-  { label: "Stock" },
+  { label: "Tous produits", icon: Boxes },
   { label: "Historique", icon: ClipboardList },
 ];
 
@@ -162,7 +165,11 @@ export function CounterPage({
   const selectedClient = "Standard client";
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [productSort, setProductSort] = useState<"name-asc" | "price-asc" | "price-desc">("name-asc");
+  const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [isSortMenuOpen, setSortMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(topTabs[0].label);
   const [isPricePanelOpen, setIsPricePanelOpen] = useState(false);
   const [priceInput, setPriceInput] = useState("");
@@ -182,10 +189,27 @@ export function CounterPage({
   const priceSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const quantitySelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const totalSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
+  const categoryMenuRef = useRef<HTMLDivElement>(null);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
   const basketsRef = useRef<PendingBasket[]>(baskets);
   useEffect(() => {
     basketsRef.current = baskets;
   }, [baskets]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isCategoryMenuOpen && categoryMenuRef.current && !categoryMenuRef.current.contains(event.target as Node)) {
+        setCategoryMenuOpen(false);
+      }
+      if (isSortMenuOpen && sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isCategoryMenuOpen, isSortMenuOpen]);
 
   const activeBasket = baskets[activeBasketIndex] ?? baskets[0];
   const activeBasketId = activeBasket?.id ?? "";
@@ -319,42 +343,28 @@ export function CounterPage({
   }, [availableProducts]);
 
   const filteredProducts = useMemo(() => {
-    return availableProducts.filter((product) => {
-      return activeCategory === "all" || product.category === activeCategory;
+    const normalized = productSearch.trim().toLowerCase();
+    const filtered = availableProducts.filter((product) => {
+      const matchesCategory = activeCategory === "all" || product.category === activeCategory;
+      const matchesQuery =
+        normalized.length === 0 ||
+        product.name.toLowerCase().includes(normalized) ||
+        product.sku.toLowerCase().includes(normalized) ||
+        product.barcode?.toLowerCase().includes(normalized);
+      return matchesCategory && matchesQuery;
     });
-  }, [availableProducts, activeCategory]);
-
-  const stockOverview = useMemo(() => {
-    const categoryMap = new Map<string, { category: string; skuCount: number; totalQty: number; value: number }>();
-    for (const product of availableProducts) {
-      const entry =
-        categoryMap.get(product.category) ?? {
-          category: product.category,
-          skuCount: 0,
-          totalQty: 0,
-          value: 0,
-        };
-      entry.skuCount += 1;
-      const qty = Number(product.stockQty ?? 0);
-      entry.totalQty += qty;
-      const unitValue = Number(product.buyPrice ?? product.price);
-      entry.value += unitValue * qty;
-      categoryMap.set(product.category, entry);
-    }
-    return Array.from(categoryMap.values());
-  }, [availableProducts]);
-
-  const stockTotals = useMemo(() => {
-    return stockOverview.reduce(
-      (totals, entry) => {
-        totals.skuCount += entry.skuCount;
-        totals.totalQty += entry.totalQty;
-        totals.value += entry.value;
-        return totals;
-      },
-      { skuCount: 0, totalQty: 0, value: 0 },
-    );
-  }, [stockOverview]);
+    const sorted = [...filtered].sort((a, b) => {
+      switch (productSort) {
+        case "price-asc":
+          return a.price - b.price;
+        case "price-desc":
+          return b.price - a.price;
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+    return sorted;
+  }, [availableProducts, activeCategory, productSearch, productSort]);
 
   const historyEntries = useMemo(() => historyBaskets, [historyBaskets]);
 
@@ -934,51 +944,128 @@ export function CounterPage({
           </div>
 
           <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
-            {activeTab === "Stock" ? (
-              <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner">
-                <div className="grid gap-3 text-[11px] sm:grid-cols-3">
-                  <div className="rounded-2xl border border-strong bg-background/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Catégories</p>
-                    <p className="text-2xl font-semibold">{stockOverview.length}</p>
-                  </div>
-                  <div className="rounded-2xl border border-strong bg-background/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">SKUs suivis</p>
-                    <p className="text-2xl font-semibold">{stockTotals.skuCount}</p>
-                  </div>
-                  <div className="rounded-2xl border border-strong bg-background/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Valeur estimée</p>
-                    <p className="text-2xl font-semibold">{formatCurrency(stockTotals.value)}</p>
+            {activeTab === "Tous produits" ? (
+              <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-inner">
+                <div className="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-strong bg-panel px-4 py-3 text-[11px] uppercase tracking-[0.3em] text-muted-foreground sticky top-0 z-10">
+                  <span className="text-muted-foreground">Tous les produits</span>
+                  <span className="rounded-xl border border-strong bg-panel-soft px-3 py-1 text-[10px] font-semibold text-foreground">
+                    {filteredProducts.length} / {availableProducts.length} article(s)
+                  </span>
+                  <div className="ml-auto flex flex-wrap items-center gap-2 text-xs font-normal normal-case tracking-normal">
+                    <div className="flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-2 text-sm text-muted-foreground">
+                      <Search className="h-4 w-4" />
+                      <input
+                        className="w-52 bg-transparent text-sm outline-none"
+                        placeholder="Rechercher par nom, SKU ou code-barres"
+                        value={productSearch}
+                        onChange={(event) => setProductSearch(event.target.value)}
+                      />
+                    </div>
+                    <div ref={categoryMenuRef} className="relative">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-2 pr-9 text-sm font-semibold text-foreground shadow-inner transition hover:border-emerald-500"
+                        onClick={() => setCategoryMenuOpen((prev) => !prev)}
+                      >
+                        {activeCategory === "all" ? "Toutes les catégories" : activeCategory}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      {isCategoryMenuOpen ? (
+                        <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-strong bg-panel-soft p-1 shadow-2xl">
+                          {categories.map((category) => {
+                            const isActive = activeCategory === category;
+                            return (
+                              <button
+                                key={category}
+                                type="button"
+                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
+                                  isActive
+                                    ? "bg-emerald-500/15 text-foreground"
+                                    : "text-muted-foreground hover:bg-background"
+                                }`}
+                                onClick={() => {
+                                  setActiveCategory(category);
+                                  setCategoryMenuOpen(false);
+                                }}
+                              >
+                                <span>{category === "all" ? "Toutes les catégories" : category}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div ref={sortMenuRef} className="relative">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-2 pr-9 text-sm font-semibold text-foreground shadow-inner transition hover:border-emerald-500"
+                        onClick={() => setSortMenuOpen((prev) => !prev)}
+                      >
+                        {productSort === "name-asc"
+                          ? "Nom A → Z"
+                          : productSort === "price-asc"
+                            ? "Prix croissant"
+                            : "Prix décroissant"}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      {isSortMenuOpen ? (
+                        <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-strong bg-panel-soft p-1 shadow-2xl">
+                          {[
+                            { value: "name-asc", label: "Nom A → Z" },
+                            { value: "price-asc", label: "Prix croissant" },
+                            { value: "price-desc", label: "Prix décroissant" },
+                          ].map((option) => {
+                            const isActive = productSort === option.value;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition ${
+                                  isActive
+                                    ? "bg-emerald-500/15 text-foreground"
+                                    : "text-muted-foreground hover:bg-background"
+                                }`}
+                                onClick={() => {
+                                  setProductSort(option.value as typeof productSort);
+                                  setSortMenuOpen(false);
+                                }}
+                              >
+                                <span>{option.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-                <div className="mt-4 overflow-auto rounded-2xl border border-strong bg-background">
-                  <table className="w-full text-[11px]">
-                    <thead className="sticky top-0 border-b border-strong bg-panel text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">Catégorie</th>
-                        <th className="px-3 py-2 text-right font-medium">Produits</th>
-                        <th className="px-3 py-2 text-right font-medium">Stock total</th>
-                        <th className="px-3 py-2 text-right font-medium">Valeur</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stockOverview.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
-                            Aucune donnée de stock.
-                          </td>
-                        </tr>
-                      ) : (
-                        stockOverview.map((entry) => (
-                          <tr key={entry.category} className="border-b border-dashed border-border">
-                            <td className="px-3 py-2 font-semibold">{entry.category}</td>
-                            <td className="px-3 py-2 text-right">{entry.skuCount}</td>
-                            <td className="px-3 py-2 text-right">{entry.totalQty}</td>
-                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(entry.value)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                <div className="mt-3 flex-1 overflow-auto">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {filteredProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-strong hover:shadow-lg"
+                        onClick={() => handleProductCardClick(product)}
+                      >
+                        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
+                          Illustration
+                        </div>
+                        <div className="mt-3 space-y-1 text-muted-foreground">
+                          <p className="text-sm font-semibold text-foreground">{product.name}</p>
+                          <p className="text-xs">{product.sku}</p>
+                          <p className="text-[13px] font-semibold text-emerald-600">
+                            {formatCurrency(product.price)}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredProducts.length === 0 ? (
+                      <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
+                        Aucun produit disponible.
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </section>
             ) : activeTab === "Historique" ? (

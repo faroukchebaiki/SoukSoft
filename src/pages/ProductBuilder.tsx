@@ -373,6 +373,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
   const [lastImportSnapshot, setLastImportSnapshot] = useState<ImportHistoryEntry | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -472,7 +473,30 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
   };
 
   const handleSaveProduct = (closeAfterSave: boolean) => {
-    if (!form.name || !form.sku || !form.barcode) return;
+    const trimmedName = form.name.trim();
+    const trimmedSku = form.sku.trim();
+    const trimmedBarcode = form.barcode.trim();
+    if (!trimmedName || !trimmedSku || !trimmedBarcode) {
+      setFormError("Name, SKU, and barcode are required.");
+      return;
+    }
+    const hasSkuCollision = products.some(
+      (product) => product.id !== editingId && product.sku.toLowerCase() === trimmedSku.toLowerCase(),
+    );
+    if (hasSkuCollision) {
+      setFormError("Another product already uses this SKU.");
+      return;
+    }
+    const hasBarcodeCollision = products.some(
+      (product) =>
+        product.id !== editingId &&
+        product.barcode &&
+        product.barcode.toLowerCase() === trimmedBarcode.toLowerCase(),
+    );
+    if (hasBarcodeCollision) {
+      setFormError("Another product already uses this barcode.");
+      return;
+    }
     const buyPriceValue = parseNumberInput(form.buyPrice);
     const sellPriceValue = parseNumberInput(form.sellPrice) ?? 0;
     const stockQtyValue = parseNumberInput(form.stockQty) ?? 0;
@@ -482,10 +506,10 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
       : undefined;
     const nextProduct: CatalogProduct = {
       id: editingId ?? createProductId(),
-      name: form.name,
-      sku: form.sku,
-      barcode: form.barcode,
-      category: form.category || "General",
+      name: trimmedName,
+      sku: trimmedSku,
+      barcode: trimmedBarcode,
+      category: form.category.trim() || "General",
       unit: form.unit,
       price: sellPriceValue,
       sellPrice: sellPriceValue,
@@ -514,6 +538,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
         : summarizeProductCreation(nextProduct),
     });
 
+    setFormError(null);
     setForm(emptyForm);
     setEditingId(null);
     persistDraftForm(null);
@@ -596,6 +621,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
   const handleEdit = (product: CatalogProduct) => {
     setForm(productToFormState(product));
     setEditingId(product.id);
+    setFormError(null);
     setIsFormOpen(true);
   };
 
@@ -605,6 +631,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
     duplicateForm.barcode = "";
     setForm(duplicateForm);
     setEditingId(null);
+    setFormError(null);
     setIsFormOpen(true);
   };
 
@@ -621,6 +648,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
       setForm(loadDraftOrEmpty());
       setIsFormOpen(false);
     }
+    setFormError(null);
     setSelectedIds((prev) => {
       if (!prev.has(productId)) return prev;
       const next = new Set(prev);
@@ -644,6 +672,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
     setProducts(defaults);
     setForm(loadDraftOrEmpty());
     setEditingId(null);
+    setFormError(null);
     setIsFormOpen(false);
     setFilter("");
     setSelectedIds(new Set());
@@ -654,12 +683,14 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
   const handleOpenNewProduct = () => {
     setForm(loadDraftOrEmpty());
     setEditingId(null);
+    setFormError(null);
     setIsFormOpen(true);
   };
 
   const handleCancelForm = () => {
     setIsFormOpen(false);
     setEditingId(null);
+    setFormError(null);
     setForm(loadDraftOrEmpty());
   };
 
@@ -667,6 +698,7 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
     persistDraftForm(form);
     setIsFormOpen(false);
     setEditingId(null);
+    setFormError(null);
   };
 
   const handleExportCsv = () => {
@@ -1213,6 +1245,11 @@ export function ProductBuilder({ onGoHome }: ProductBuilderProps = {}) {
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden px-6 pb-6 pt-4">
               <form className="flex h-full flex-col gap-4" onSubmit={handleSubmit}>
+                {formError ? (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    {formError}
+                  </div>
+                ) : null}
                 <div className="grid flex-1 min-h-0 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                   <section className="grid grid-cols-2 gap-3 rounded-2xl border bg-card/60 p-4 text-sm">
                     <div className="col-span-2">

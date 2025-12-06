@@ -233,12 +233,24 @@ export function CounterPage({
   const [priceModalItem, setPriceModalItem] = useState<CartItem | null>(null);
   const [basketNotice, setBasketNotice] = useState<string | null>(null);
   const [isBasketOverviewOpen, setBasketOverviewOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [tabVisibility, setTabVisibility] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(topTabs.map((tab) => [tab.label, true])),
+  );
+  const [actionVisibility, setActionVisibility] = useState({
+    showPrice: true,
+    showQuantity: true,
+    showValidate: true,
+    showPrint: true,
+    mergeValidateAndPrint: false,
+  });
   const scannerInputRef = useRef<HTMLInputElement>(null);
   const basketTableBodyRef = useRef<HTMLTableSectionElement>(null);
   const printAreaRef = useRef<HTMLDivElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const totalInputRef = useRef<HTMLInputElement>(null);
+  const clientSearchInputRef = useRef<HTMLInputElement>(null);
   const priceSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const quantitySelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
   const totalSelectionRef = useRef<SelectionRange>({ start: 0, end: 0 });
@@ -462,6 +474,10 @@ export function CounterPage({
     () => (activeHistoryEntry ? calculateTotals(activeHistoryEntry.items) : null),
     [activeHistoryEntry],
   );
+  const visibleTabs = useMemo(() => {
+    const filtered = topTabs.filter((tab) => tabVisibility[tab.label] !== false);
+    return filtered.length ? filtered : [topTabs[0]];
+  }, [tabVisibility]);
   const selectedClientEntry = useMemo(
     () => clientDirectory.find((client) => client.id === selectedClientId) ?? clientDirectory[0] ?? null,
     [clientDirectory, selectedClientId],
@@ -476,6 +492,11 @@ export function CounterPage({
         entry.clientName.toLowerCase() === nameLower,
     );
   }, [historyBaskets, selectedClientEntry]);
+
+  useEffect(() => {
+    if (visibleTabs.some((tab) => tab.label === activeTab)) return;
+    setActiveTab(visibleTabs[0]?.label ?? topTabs[0].label);
+  }, [activeTab, visibleTabs]);
   const displayedDate = activeHistoryEntry
     ? new Date(activeHistoryEntry.createdAt).toLocaleDateString("fr-DZ")
     : new Date().toLocaleDateString("fr-DZ");
@@ -636,6 +657,27 @@ export function CounterPage({
     setClientModalOpen(false);
     resetClientForm();
   }, [resetClientForm]);
+
+  const toggleTab = (label: string) => {
+    setTabVisibility((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      const enabled = Object.values(next).some(Boolean);
+      if (!enabled) {
+        next[label] = true;
+      }
+      return next;
+    });
+  };
+
+  const toggleAction = (key: keyof typeof actionVisibility) => {
+    setActionVisibility((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (key === "mergeValidateAndPrint" && !next.mergeValidateAndPrint) {
+        return next;
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!isClientModalOpen) return;
@@ -801,6 +843,12 @@ export function CounterPage({
     receiptSettings.printerName,
     receiptSettings.showPrintPreview,
   ]);
+
+  const handleValidateAndPrint = useCallback(() => {
+    if (receiptPreviewItems.length === 0) return;
+    handlePrintReceipt();
+    handleFinishBasket();
+  }, [handleFinishBasket, handlePrintReceipt, receiptPreviewItems.length]);
 
   const handleDeleteLastItem = useCallback(() => {
     updateActiveBasketItems((prev) => {
@@ -1075,6 +1123,7 @@ export function CounterPage({
   const cancelButtonDisabled = isHistoryPreview ? false : isBasketEmpty;
   const canNavigateHistory = historyEntries.length > 0;
   const isEditingClient = Boolean(editingClientId);
+  const { showPrice, showQuantity, showValidate, showPrint, mergeValidateAndPrint } = actionVisibility;
   const filteredClients = useMemo(() => {
     const normalized = clientSearch.trim().toLowerCase();
     return clientDirectory.filter((client) => {
@@ -1108,11 +1157,12 @@ export function CounterPage({
                 <Button
                   variant="outline"
                   size="sm"
-                className="rounded-2xl border-strong bg-panel-soft px-3 py-2 hover:border-emerald-500"
-                aria-label="Ouvrir les réglages"
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
+                  className="rounded-2xl border-strong bg-panel-soft px-3 py-2 hover:border-emerald-500"
+                  onClick={() => setIsSettingsOpen(true)}
+                  aria-label="Ouvrir les réglages"
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1124,14 +1174,19 @@ export function CounterPage({
               </Button>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-strong bg-panel-soft px-2 py-1 text-[11px] shadow-inner">
-              {topTabs.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const Icon = tab.icon ?? Bell;
                 const isActive = activeTab === tab.label;
                 return (
                   <button
                     key={tab.label}
                     type="button"
-                    onClick={() => setActiveTab(tab.label)}
+                    onClick={() => {
+                      setActiveTab(tab.label);
+                      if (tab.label === "Clients") {
+                        requestAnimationFrame(() => clientSearchInputRef.current?.focus());
+                      }
+                    }}
                     className={`flex items-center gap-2 rounded-2xl px-3 py-1 border transition-colors ${
                       isActive
                         ? "border-emerald-500 bg-emerald-500/20 text-foreground shadow-lg hover:bg-emerald-500/30"
@@ -1308,11 +1363,12 @@ export function CounterPage({
                       <div className="flex items-center gap-2 rounded-2xl border border-strong bg-background px-3 py-2 text-sm text-muted-foreground">
                         <Search className="h-4 w-4" />
                         <input
+                          ref={clientSearchInputRef}
                           className="w-48 bg-transparent text-sm outline-none"
-                        placeholder="Rechercher un client"
-                        value={clientSearch}
-                        onChange={(event) => setClientSearch(event.target.value)}
-                      />
+                          placeholder="Rechercher un client"
+                          value={clientSearch}
+                          onChange={(event) => setClientSearch(event.target.value)}
+                        />
                     </div>
                     <div ref={clientFilterMenuRef} className="relative">
                       <button
@@ -1645,41 +1701,62 @@ export function CounterPage({
               Suppr
               <span className="text-[10px]">SUPPR</span>
             </Button>
-            <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400 disabled:opacity-60"
-              onClick={() => handleOpenPricePanel("price")}
-              disabled={basketActionsDisabled}
-            >
-              <Tag className="h-4 w-4" />
-              Prix
-              <span className="text-[10px]">F4</span>
-            </Button>
-            <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400 disabled:opacity-60"
-              onClick={() => handleOpenPricePanel("quantity")}
-              disabled={basketActionsDisabled}
-            >
-              <HandCoins className="h-4 w-4" />
-              Qté
-              <span className="text-[10px]">F3</span>
-            </Button>
-            <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-600 text-xs text-white hover:bg-emerald-500 disabled:opacity-60"
-              onClick={handleFinishBasket}
-              disabled={basketActionsDisabled}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Valider
-              <span className="text-[10px]">F11</span>
-            </Button>
-            <Button
-              className="flex-1 flex-col gap-1 rounded-2xl bg-purple-500 text-xs text-white hover:bg-purple-400 disabled:opacity-60"
-              onClick={handlePrintReceipt}
-              disabled={displayedItems.length === 0}
-            >
-              <Printer className="h-4 w-4" />
-              Reçu
-            </Button>
+            {showPrice ? (
+              <Button
+                className="flex-1 flex-col gap-1 rounded-2xl bg-blue-500 text-xs text-white hover:bg-blue-400 disabled:opacity-60"
+                onClick={() => handleOpenPricePanel("price")}
+                disabled={basketActionsDisabled}
+              >
+                <Tag className="h-4 w-4" />
+                Prix
+                <span className="text-[10px]">F4</span>
+              </Button>
+            ) : null}
+            {showQuantity ? (
+              <Button
+                className="flex-1 flex-col gap-1 rounded-2xl bg-slate-500 text-xs text-white hover:bg-slate-400 disabled:opacity-60"
+                onClick={() => handleOpenPricePanel("quantity")}
+                disabled={basketActionsDisabled}
+              >
+                <HandCoins className="h-4 w-4" />
+                Qté
+                <span className="text-[10px]">F3</span>
+              </Button>
+            ) : null}
+            {mergeValidateAndPrint ? (
+              <Button
+                className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-700 text-xs text-white hover:bg-emerald-600 disabled:opacity-60"
+                onClick={handleValidateAndPrint}
+                disabled={basketActionsDisabled}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Valider + Reçu
+              </Button>
+            ) : (
+              <>
+                {showValidate ? (
+                  <Button
+                    className="flex-1 flex-col gap-1 rounded-2xl bg-emerald-600 text-xs text-white hover:bg-emerald-500 disabled:opacity-60"
+                    onClick={handleFinishBasket}
+                    disabled={basketActionsDisabled}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Valider
+                    <span className="text-[10px]">F11</span>
+                  </Button>
+                ) : null}
+                {showPrint ? (
+                  <Button
+                    className="flex-1 flex-col gap-1 rounded-2xl bg-purple-500 text-xs text-white hover:bg-purple-400 disabled:opacity-60"
+                    onClick={handlePrintReceipt}
+                    disabled={displayedItems.length === 0}
+                  >
+                    <Printer className="h-4 w-4" />
+                    Reçu
+                  </Button>
+                ) : null}
+              </>
+            )}
           </div>
 
               <div className="flex flex-1 min-h-0 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-2xl">
@@ -1856,6 +1933,95 @@ export function CounterPage({
           </div>
         </aside>
       </div>
+      {isSettingsOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-[min(780px,96vw)] rounded-[1.5rem] border border-border bg-panel p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Réglages rapides</p>
+                <p className="text-lg font-semibold">Personnaliser le comptoir</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setIsSettingsOpen(false)}>
+                Fermer
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-strong bg-background p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Onglets visibles</p>
+                    <p className="text-sm text-muted-foreground">Choisissez les sections dans la barre du haut.</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {topTabs.map((tab) => {
+                    const enabled = tabVisibility[tab.label] !== false;
+                    return (
+                      <button
+                        key={tab.label}
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition ${
+                          enabled
+                            ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                            : "border-border bg-panel-soft text-muted-foreground hover:border-strong"
+                        }`}
+                        onClick={() => toggleTab(tab.label)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <tab.icon className="h-4 w-4" />
+                          {tab.label}
+                        </span>
+                        <span className="text-[11px] font-semibold">
+                          {enabled ? "Actif" : "Masqué"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-strong bg-background p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Actions rapides</p>
+                    <p className="text-sm text-muted-foreground">Activer/désactiver les boutons (Home toujours présent).</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {(
+                    [
+                      { key: "showPrice", label: "Bouton Prix" },
+                      { key: "showQuantity", label: "Bouton Quantité" },
+                      { key: "showValidate", label: "Valider ticket" },
+                      { key: "showPrint", label: "Imprimer reçu" },
+                      { key: "mergeValidateAndPrint", label: "Fusionner valider + reçu" },
+                    ] as Array<{ key: keyof typeof actionVisibility; label: string }>
+                  ).map((entry) => {
+                    const enabled = actionVisibility[entry.key];
+                    return (
+                      <button
+                        key={entry.key}
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition ${
+                          enabled
+                            ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                            : "border-border bg-panel-soft text-muted-foreground hover:border-strong"
+                        }`}
+                        onClick={() => toggleAction(entry.key)}
+                      >
+                        <span>{entry.label}</span>
+                        <span className="text-[11px] font-semibold">{enabled ? "Actif" : "Masqué"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-[12px] text-muted-foreground">
+                  Quand fusionné, le bouton exécute l&apos;impression puis la validation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isClientModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <form

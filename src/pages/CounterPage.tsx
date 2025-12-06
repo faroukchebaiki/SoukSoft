@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Contact,
   CheckCircle2,
+  Edit3,
   ClipboardList,
   HandCoins,
   Home,
@@ -173,7 +174,6 @@ export function CounterPage({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [historyBaskets, setHistoryBaskets] = useState<BasketHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState("Standard client");
   const [scannerListening, setScannerListening] = useState(true);
   const [scannerInput, setScannerInput] = useState("");
   const [productSearch, setProductSearch] = useState("");
@@ -189,29 +189,36 @@ export function CounterPage({
   const [clientAddress, setClientAddress] = useState("");
   const [clientNote, setClientNote] = useState("");
   const [clientFormError, setClientFormError] = useState<string | null>(null);
-  const [clientDirectory, setClientDirectory] = useState<ClientCard[]>([
-    {
-      id: createBasketId(),
-      name: "Standard client",
-      phone: "0000000000",
-      sex: "male",
-      note: "Client par défaut",
-    },
-    {
-      id: createBasketId(),
-      name: "Amel B.",
-      phone: "0550 000 111",
-      address: "Centre ville",
-      sex: "female",
-    },
-    {
-      id: createBasketId(),
-      name: "Karim L.",
-      phone: "0661 222 333",
-      address: "Bab Ezzouar",
-      sex: "male",
-    },
-  ]);
+  const initialClientsRef = useRef<ClientCard[] | null>(null);
+  if (!initialClientsRef.current) {
+    initialClientsRef.current = [
+      {
+        id: createBasketId(),
+        name: "Standard client",
+        phone: "0000000000",
+        sex: "male",
+        note: "Client par défaut",
+      },
+      {
+        id: createBasketId(),
+        name: "Amel B.",
+        phone: "0550 000 111",
+        address: "Centre ville",
+        sex: "female",
+      },
+      {
+        id: createBasketId(),
+        name: "Karim L.",
+        phone: "0661 222 333",
+        address: "Bab Ezzouar",
+        sex: "male",
+      },
+    ];
+  }
+  const defaultClientId = initialClientsRef.current[0].id;
+  const [clientDirectory, setClientDirectory] = useState<ClientCard[]>(() => initialClientsRef.current ?? []);
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => defaultClientId);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [clientFilterSex, setClientFilterSex] = useState<"all" | "male" | "female">("all");
   const [isClientFilterMenuOpen, setClientFilterMenuOpen] = useState(false);
@@ -243,6 +250,17 @@ export function CounterPage({
   useEffect(() => {
     basketsRef.current = baskets;
   }, [baskets]);
+
+  const resetClientForm = useCallback(() => {
+    setClientFormError(null);
+    setClientFirstName("");
+    setClientLastName("");
+    setClientPrimaryPhone("");
+    setClientAddress("");
+    setClientNote("");
+    setClientSex("male");
+    setEditingClientId(null);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -443,6 +461,11 @@ export function CounterPage({
     () => (activeHistoryEntry ? calculateTotals(activeHistoryEntry.items) : null),
     [activeHistoryEntry],
   );
+  const selectedClientEntry = useMemo(
+    () => clientDirectory.find((client) => client.id === selectedClientId) ?? clientDirectory[0] ?? null,
+    [clientDirectory, selectedClientId],
+  );
+  const selectedClientName = selectedClientEntry?.name ?? "Standard client";
   const displayedDate = activeHistoryEntry
     ? new Date(activeHistoryEntry.createdAt).toLocaleDateString("fr-DZ")
     : new Date().toLocaleDateString("fr-DZ");
@@ -452,7 +475,7 @@ export function CounterPage({
   const displayedItems = activeHistoryEntry ? activeHistoryEntry.items : basketItems;
   const displayedTotals = historyTotals ?? totals;
   const displayedArticles = displayedItems.length;
-  const displayedClientName = activeHistoryEntry?.clientName ?? selectedClient ?? "Standard client";
+  const displayedClientName = activeHistoryEntry?.clientName ?? selectedClientName;
   const displayedCashierName = cashierName || "FirstLastName";
   const displayedTotalValue = useMemo(
     () => formatTicketTotal(displayedTotals.total),
@@ -595,14 +618,14 @@ export function CounterPage({
   }, [focusScannerInput, selectedHistoryId, updateActiveBasketItems]);
 
   const handleOpenClientModal = useCallback(() => {
-    setClientFormError(null);
+    resetClientForm();
     setClientModalOpen(true);
-  }, []);
+  }, [resetClientForm]);
 
   const handleCloseClientModal = useCallback(() => {
     setClientModalOpen(false);
-    setClientFormError(null);
-  }, []);
+    resetClientForm();
+  }, [resetClientForm]);
 
   useEffect(() => {
     if (!isClientModalOpen) return;
@@ -637,32 +660,72 @@ export function CounterPage({
         return;
       }
       const fullName = `${first} ${last}`.trim();
-      setSelectedClient(fullName);
+      const clientPayload: ClientCard = {
+        id: editingClientId ?? createBasketId(),
+        name: fullName,
+        phone: phoneA,
+        address: clientAddress || undefined,
+        sex: clientSex,
+        note: clientNote || undefined,
+      };
+      setClientDirectory((prev) => {
+        if (editingClientId) {
+          return prev.map((client) => (client.id === editingClientId ? clientPayload : client));
+        }
+        return [clientPayload, ...prev];
+      });
+      setSelectedClientId(clientPayload.id);
       setClientFormError(null);
       setClientModalOpen(false);
-      setClientFirstName("");
-      setClientLastName("");
-      setClientPrimaryPhone("");
-      setClientAddress("");
-      setClientNote("");
-      setClientSex("male");
+      resetClientForm();
+    },
+    [
+      clientAddress,
+      clientFirstName,
+      clientLastName,
+      clientNote,
+      clientPrimaryPhone,
+      clientSex,
+      editingClientId,
+      resetClientForm,
+    ],
+  );
+
+  const handleSelectClient = useCallback((clientId: string) => {
+    setSelectedClientId(clientId);
+  }, []);
+
+  const handleEditClient = useCallback(
+    (client: ClientCard) => {
+      const [first, ...rest] = client.name.split(" ");
+      setEditingClientId(client.id);
+      setClientFirstName(first ?? "");
+      setClientLastName(rest.join(" ").trim());
+      setClientPrimaryPhone(client.phone ?? "");
+      setClientAddress(client.address ?? "");
+      setClientNote(client.note ?? "");
+      setClientSex(client.sex ?? "male");
+      setClientFormError(null);
+      setClientModalOpen(true);
+    },
+    [],
+  );
+
+  const handleDeleteClient = useCallback(
+    (clientId: string) => {
+      if (clientId === defaultClientId) return;
+      const confirmed = window.confirm("Supprimer ce client ? Cette action est définitive.");
+      if (!confirmed) return;
       setClientDirectory((prev) => {
-        const exists = prev.find((entry) => entry.name.toLowerCase() === fullName.toLowerCase());
-        if (exists) return prev;
-        return [
-          {
-            id: createBasketId(),
-            name: fullName,
-            phone: phoneA,
-            address: clientAddress || undefined,
-            sex: clientSex,
-            note: clientNote || undefined,
-          },
-          ...prev,
-        ];
+        const next = prev.filter((client) => client.id !== clientId);
+        if (!next.length) return prev;
+        if (clientId === selectedClientId) {
+          setSelectedClientId(next[0].id);
+        }
+        return next;
       });
     },
-    [clientFirstName, clientLastName, clientPrimaryPhone, clientAddress, clientSex, clientNote],
+    [defaultClientId, selectedClientId],
   );
 
   const handleFinishBasket = useCallback(() => {
@@ -674,7 +737,7 @@ export function CounterPage({
       createdAt: new Date().toISOString(),
       items: snapshotItems,
       total,
-      clientName: selectedClient || "Standard client",
+      clientName: selectedClientName,
       cashierName: cashierName || "FirstLastName",
       paymentMethod: "Cash",
     };
@@ -690,7 +753,7 @@ export function CounterPage({
     basketItems,
     cashierName,
     focusScannerInput,
-    selectedClient,
+    selectedClientName,
     selectedHistoryId,
     updateActiveBasketItems,
   ]);
@@ -999,6 +1062,7 @@ export function CounterPage({
   const basketActionsDisabled = isHistoryPreview || isBasketEmpty;
   const cancelButtonDisabled = isHistoryPreview ? false : isBasketEmpty;
   const canNavigateHistory = historyEntries.length > 0;
+  const isEditingClient = Boolean(editingClientId);
   const filteredClients = useMemo(() => {
     const normalized = clientSearch.trim().toLowerCase();
     return clientDirectory.filter((client) => {
@@ -1282,33 +1346,89 @@ export function CounterPage({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex-1 overflow-auto">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredClients.map((client) => (
-                      <div
-                        key={client.id}
-                        className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-emerald-500 hover:shadow-lg"
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-foreground">{client.name}</p>
-                          <span className="rounded-full bg-panel-soft px-2 py-1 text-[10px] font-semibold text-muted-foreground">
-                            {client.sex === "female" ? "Femme" : "Homme"}
-                          </span>
-                        </div>
-                        <div className="mt-2 space-y-1 text-muted-foreground">
-                          <p className="text-sm font-semibold text-emerald-600">{client.phone}</p>
-                          {client.address ? <p className="text-xs">{client.address}</p> : null}
-                          {client.note ? (
-                            <p className="text-[11px] text-muted-foreground line-clamp-2">{client.note}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                    {filteredClients.length === 0 ? (
-                      <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
-                        Aucun client trouvé.
-                      </div>
-                    ) : null}
+                <div className="mt-3 flex-1 overflow-hidden rounded-2xl border border-strong bg-background">
+                  <div className="h-full overflow-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="sticky top-0 z-10 border-b border-strong bg-panel text-left text-[11px] uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Client</th>
+                          <th className="px-3 py-2 font-medium">Téléphone</th>
+                          <th className="px-3 py-2 font-medium">Adresse</th>
+                          <th className="px-3 py-2 font-medium">Notes</th>
+                          <th className="px-3 py-2 text-right font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-strong">
+                        {filteredClients.map((client) => {
+                          const isSelected = client.id === selectedClientId;
+                          return (
+                            <tr
+                              key={client.id}
+                              className={`cursor-pointer transition ${isSelected ? "bg-emerald-500/10" : "hover:bg-panel-soft"}`}
+                              onClick={() => handleSelectClient(client.id)}
+                            >
+                              <td className="px-3 py-3">
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle2
+                                    className={`h-4 w-4 ${isSelected ? "text-emerald-600" : "text-muted-foreground"}`}
+                                  />
+                                  <div>
+                                    <div className="font-semibold">{client.name}</div>
+                                    <div className="text-[11px] uppercase text-muted-foreground">
+                                      {client.id === defaultClientId ? "Par défaut" : client.sex === "female" ? "Femme" : "Homme"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-muted-foreground">{client.phone}</td>
+                              <td className="px-3 py-3 text-muted-foreground">{client.address ?? "—"}</td>
+                              <td className="px-3 py-3 text-muted-foreground">
+                                {client.note ? (
+                                  <span className="line-clamp-2 text-xs">{client.note}</span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-full px-3"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleEditClient(client);
+                                    }}
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                    Modifier
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="rounded-full text-destructive hover:bg-destructive/10"
+                                    disabled={client.id === defaultClientId}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleDeleteClient(client.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredClients.length === 0 ? (
+                          <tr>
+                            <td className="px-3 py-6 text-center text-muted-foreground" colSpan={5}>
+                              Aucun client trouvé.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </section>
@@ -1690,8 +1810,12 @@ export function CounterPage({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Nouveau client</p>
-                <p className="text-lg font-semibold">Ajouter un client</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  {isEditingClient ? "Modifier un client" : "Nouveau client"}
+                </p>
+                <p className="text-lg font-semibold">
+                  {isEditingClient ? "Mettre à jour le profil" : "Ajouter un client"}
+                </p>
               </div>
               <Button variant="outline" size="sm" onClick={handleCloseClientModal} type="button">
                 Fermer

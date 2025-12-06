@@ -100,6 +100,7 @@ interface BasketHistoryEntry {
   createdAt: string;
   items: CartItem[];
   total: number;
+  clientId?: string;
   clientName: string;
   cashierName: string;
   paymentMethod?: string;
@@ -466,6 +467,15 @@ export function CounterPage({
     [clientDirectory, selectedClientId],
   );
   const selectedClientName = selectedClientEntry?.name ?? "Standard client";
+  const clientHistoryEntries = useMemo(() => {
+    if (!selectedClientEntry) return [];
+    const nameLower = selectedClientEntry.name.toLowerCase();
+    return historyBaskets.filter(
+      (entry) =>
+        (entry.clientId && entry.clientId === selectedClientEntry.id) ||
+        entry.clientName.toLowerCase() === nameLower,
+    );
+  }, [historyBaskets, selectedClientEntry]);
   const displayedDate = activeHistoryEntry
     ? new Date(activeHistoryEntry.createdAt).toLocaleDateString("fr-DZ")
     : new Date().toLocaleDateString("fr-DZ");
@@ -737,6 +747,7 @@ export function CounterPage({
       createdAt: new Date().toISOString(),
       items: snapshotItems,
       total,
+      clientId: selectedClientEntry?.id,
       clientName: selectedClientName,
       cashierName: cashierName || "FirstLastName",
       paymentMethod: "Cash",
@@ -753,6 +764,7 @@ export function CounterPage({
     basketItems,
     cashierName,
     focusScannerInput,
+    selectedClientEntry?.id,
     selectedClientName,
     selectedHistoryId,
     updateActiveBasketItems,
@@ -1429,6 +1441,53 @@ export function CounterPage({
                         ) : null}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+                <div className="mt-3 rounded-2xl border border-strong bg-background p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Tickets du client</p>
+                      <p className="text-sm font-semibold">{selectedClientName}</p>
+                    </div>
+                    <span className="rounded-full border border-strong bg-panel-soft px-3 py-1 text-[11px] font-semibold">
+                      {clientHistoryEntries.length} ticket(s)
+                    </span>
+                  </div>
+                  <div className="mt-2 max-h-64 overflow-auto">
+                    {clientHistoryEntries.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-strong bg-panel-soft px-3 py-4 text-sm text-muted-foreground">
+                        Aucun ticket pour ce client pour l&apos;instant.
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-strong">
+                        {clientHistoryEntries.map((entry) => {
+                          const created = new Date(entry.createdAt);
+                          const timeLabel = created.toLocaleTimeString("fr-DZ", { hour12: false });
+                          const dateLabel = created.toLocaleDateString("fr-DZ");
+                          return (
+                            <li key={entry.id} className="py-1">
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm transition hover:bg-panel-soft"
+                                onClick={() => {
+                                  handleSelectHistoryEntry(entry);
+                                  setActiveTab("Historique");
+                                }}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-semibold">#{entry.id.slice(-6)}</span>
+                                  <span className="text-[11px] text-muted-foreground">{dateLabel} · {timeLabel}</span>
+                                </div>
+                                <div className="ml-auto text-right">
+                                  <p className="font-semibold text-emerald-600">{formatCurrency(entry.total)}</p>
+                                  <p className="text-[11px] text-muted-foreground">{entry.items.length} article(s)</p>
+                                </div>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </div>
                 </div>
               </section>

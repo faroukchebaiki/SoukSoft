@@ -1464,14 +1464,18 @@ export function CounterPage({
                           const created = new Date(entry.createdAt);
                           const timeLabel = created.toLocaleTimeString("fr-DZ", { hour12: false });
                           const dateLabel = created.toLocaleDateString("fr-DZ");
+                          const isSelectedHistory = entry.id === selectedHistoryId;
                           return (
                             <li key={entry.id} className="py-1">
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm transition hover:bg-panel-soft"
+                                className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm transition ${
+                                  isSelectedHistory
+                                    ? "border border-emerald-500 bg-emerald-500/10 text-foreground"
+                                    : "border border-transparent hover:border-emerald-500 hover:bg-panel-soft text-muted-foreground hover:text-foreground"
+                                } cursor-pointer`}
                                 onClick={() => {
                                   handleSelectHistoryEntry(entry);
-                                  setActiveTab("Historique");
                                 }}
                               >
                                 <div className="flex flex-col">

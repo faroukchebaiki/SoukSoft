@@ -208,6 +208,7 @@ export function CounterPage({
   const [favoriteAssignments, setFavoriteAssignments] = useState<FavoriteAssignments>(() => readFavoriteAssignments());
   const [activeFavoriteCategory, setActiveFavoriteCategory] = useState<string>(FAVORITES_ALL_CATEGORY);
   const [favoriteMenuOpenId, setFavoriteMenuOpenId] = useState<string | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(() => new Set());
   const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [isSortMenuOpen, setSortMenuOpen] = useState(false);
   const [isClientModalOpen, setClientModalOpen] = useState(false);
@@ -510,6 +511,34 @@ export function CounterPage({
     });
   }, []);
 
+  const toggleProductSelection = useCallback((productId: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedProductIds(new Set()), []);
+
+  const handleBulkAddToFavorite = useCallback(
+    (category: string) => {
+      if (!favoriteCategoryLabels.includes(category) || selectedProductIds.size === 0) return;
+      setFavoriteAssignments((prev) => {
+        const existing = prev[category] ?? [];
+        const merged = new Set(existing);
+        selectedProductIds.forEach((id) => merged.add(id));
+        return { ...prev, [category]: Array.from(merged) };
+      });
+      clearSelection();
+    },
+    [clearSelection, selectedProductIds],
+  );
+
   const categories = useMemo(() => {
     const unique = Array.from(new Set(availableProducts.map((product) => product.category)));
     return ["all", ...unique];
@@ -541,6 +570,24 @@ export function CounterPage({
     });
     return sorted;
   }, [activeTab, availableProducts, favoritesForActiveCategory, activeCategory, productSearch, productSort]);
+
+  const handleSelectAllFiltered = useCallback(() => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      filteredProducts.forEach((product) => next.add(product.id));
+      return next;
+    });
+  }, [filteredProducts]);
+
+  useEffect(() => {
+    clearSelection();
+  }, [activeTab, clearSelection]);
+
+  useEffect(() => {
+    if (activeTab === "Favoris") {
+      clearSelection();
+    }
+  }, [activeFavoriteCategory, activeTab, clearSelection]);
 
   const historyEntries = useMemo(() => historyBaskets, [historyBaskets]);
 
@@ -717,6 +764,7 @@ export function CounterPage({
 
   const renderProductCard = (product: CatalogProduct) => {
     const isFavorited = favoriteProductIds.has(product.id);
+    const isSelected = selectedProductIds.has(product.id);
     const favoriteTags = favoriteCategoryLabels.filter((label) =>
       (favoriteAssignments[label] ?? []).includes(product.id),
     );
@@ -726,7 +774,9 @@ export function CounterPage({
         key={product.id}
         role="button"
         tabIndex={0}
-        className="relative flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className={`relative flex h-60 w-full flex-col rounded-2xl border bg-background p-3 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+          isSelected ? "border-emerald-500 ring-1 ring-emerald-200" : "border-strong"
+        }`}
         onClick={() => handleProductCardClick(product)}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -735,12 +785,37 @@ export function CounterPage({
           }
         }}
       >
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
-          Illustration
+        <div className="absolute left-2 top-2">
+          <label
+            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-strong bg-background shadow-sm transition hover:border-emerald-500"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={isSelected}
+              onChange={(event) => {
+                event.stopPropagation();
+                toggleProductSelection(product.id);
+              }}
+            />
+            <div
+              className={`h-3 w-3 rounded-sm ${isSelected ? "bg-emerald-500" : "bg-transparent"}`}
+            />
+          </label>
         </div>
-        <div className="mt-3 space-y-1 text-muted-foreground">
-          <p className="text-sm font-semibold text-foreground">{product.name}</p>
-          <p className="text-xs">{product.sku}</p>
+        <div className="mb-3 h-24 w-full rounded-xl border border-dashed border-strong bg-panel-soft text-[11px] uppercase text-muted-foreground">
+          <div className="flex h-full items-center justify-center">Illustration</div>
+        </div>
+        <div className="flex flex-1 flex-col space-y-1 text-muted-foreground">
+          <p
+            className="text-sm font-semibold text-foreground"
+            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+            title={product.name}
+          >
+            {product.name}
+          </p>
+          <p className="text-xs text-muted-foreground">{product.sku}</p>
           <p className="text-[13px] font-semibold text-emerald-600">{formatCurrency(product.price)}</p>
           {favoriteTags.length ? (
             <div className="flex flex-wrap gap-1 text-[10px]">
@@ -754,52 +829,55 @@ export function CounterPage({
               ))}
             </div>
           ) : null}
-        </div>
-        <div className="absolute bottom-2 right-2">
-          <div className="relative">
-            <button
-              type="button"
-              className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold shadow-sm transition ${
-                isFavorited
-                  ? "border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500/60 dark:bg-amber-500/15 dark:text-amber-100"
-                  : "border-strong bg-panel-soft text-muted-foreground hover:border-emerald-500 hover:text-emerald-600"
-              }`}
-              onClick={(event) => {
-                event.stopPropagation();
-                event.preventDefault();
-                setFavoriteMenuOpenId((previous) => (previous === product.id ? null : product.id));
-              }}
-            >
-              <Star className={`h-4 w-4 ${isFavorited ? "fill-current" : ""}`} />
-              Favori
-            </button>
-            {favoriteMenuOpenId === product.id ? (
-              <div className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-xl border border-strong bg-background text-sm shadow-2xl">
-                {favoriteCategoryLabels.map((label) => {
-                  const selected = (favoriteAssignments[label] ?? []).includes(product.id);
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
-                        selected
-                          ? "bg-emerald-500/10 text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60"
-                      }`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        event.preventDefault();
-                        toggleFavorite(product.id, label);
-                        setFavoriteMenuOpenId(null);
-                      }}
-                    >
-                      <span>{label}</span>
-                      {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
+          <div className="mt-auto flex items-center justify-end">
+            <div className="group relative">
+              <button
+                type="button"
+                className={`flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
+                  isFavorited
+                    ? "border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500/60 dark:bg-amber-500/15 dark:text-amber-100"
+                    : "border-strong bg-panel-soft text-muted-foreground hover:border-emerald-500 hover:text-emerald-600"
+                }`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  event.preventDefault();
+                  setFavoriteMenuOpenId((previous) => (previous === product.id ? null : product.id));
+                }}
+                aria-label={isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
+              >
+                <Star className={`h-4 w-4 ${isFavorited ? "fill-current" : ""}`} />
+              </button>
+              <span className="pointer-events-none absolute right-full top-1/2 mr-2 w-max -translate-y-1/2 rounded-md bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 shadow-sm transition group-hover:opacity-100">
+                {isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
+              </span>
+              {favoriteMenuOpenId === product.id ? (
+                <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 overflow-hidden rounded-xl border border-strong bg-background text-sm shadow-2xl">
+                  {favoriteCategoryLabels.map((label) => {
+                    const selected = (favoriteAssignments[label] ?? []).includes(product.id);
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
+                          selected
+                            ? "bg-emerald-500/10 text-foreground"
+                            : "text-muted-foreground hover:bg-muted/60"
+                        }`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          toggleFavorite(product.id, label);
+                          setFavoriteMenuOpenId(null);
+                        }}
+                      >
+                        <span>{label}</span>
+                        {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -1494,6 +1572,47 @@ export function CounterPage({
                     </div>
                   </div>
                 </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-strong bg-panel-soft px-3 py-2 text-xs">
+                  <span className="rounded-full bg-background px-3 py-1 font-semibold text-foreground">
+                    Sélection : {selectedProductIds.size}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full px-3"
+                    disabled={filteredProducts.length === 0}
+                    onClick={handleSelectAllFiltered}
+                  >
+                    Tout sélectionner (vue)
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-full px-3"
+                    disabled={selectedProductIds.size === 0}
+                    onClick={clearSelection}
+                  >
+                    Effacer la sélection
+                  </Button>
+                  <select
+                    className="h-9 min-w-[180px] rounded-full border border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                    disabled={selectedProductIds.size === 0}
+                    defaultValue=""
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (!value) return;
+                      handleBulkAddToFavorite(value);
+                      event.currentTarget.value = "";
+                    }}
+                  >
+                    <option value="">Ajouter aux favoris…</option>
+                    {favoriteCategoryLabels.map((label) => (
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="mt-3 flex-1 overflow-auto">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredProducts.map((product) => renderProductCard(product))}
@@ -1796,15 +1915,56 @@ export function CounterPage({
                 </aside>
 
                 <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner min-h-0">
-                  <div className="grid h-full grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredProducts.map((product) => (
-                      renderProductCard(product)
-                    ))}
-                    {filteredProducts.length === 0 ? (
-                      <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
-                        Aucun produit favori pour cette catégorie.
-                      </div>
-                    ) : null}
+                  <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-strong bg-panel-soft px-3 py-2 text-xs">
+                    <span className="rounded-full bg-background px-3 py-1 font-semibold text-foreground">
+                      Sélection : {selectedProductIds.size}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full px-3"
+                      disabled={filteredProducts.length === 0}
+                      onClick={handleSelectAllFiltered}
+                    >
+                      Tout sélectionner (vue)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full px-3"
+                      disabled={selectedProductIds.size === 0}
+                      onClick={clearSelection}
+                    >
+                      Effacer la sélection
+                    </Button>
+                    <select
+                      className="h-9 min-w-[180px] rounded-full border border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                      disabled={selectedProductIds.size === 0}
+                      defaultValue=""
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (!value) return;
+                        handleBulkAddToFavorite(value);
+                        event.currentTarget.value = "";
+                      }}
+                    >
+                      <option value="">Ajouter aux favoris…</option>
+                      {favoriteCategoryLabels.map((label) => (
+                        <option key={label} value={label}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 overflow-auto">
+                    <div className="grid grid-cols-1 gap-3 content-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {filteredProducts.map((product) => renderProductCard(product))}
+                      {filteredProducts.length === 0 ? (
+                        <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
+                          Aucun produit favori pour cette catégorie.
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </section>
               </>

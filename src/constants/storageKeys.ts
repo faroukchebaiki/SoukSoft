@@ -22,3 +22,8 @@ export const USER_DEFAULT_SECTION_PREFS_KEY = "souksoft-user-default-section-pre
  * Key for persisting worker directory entries.
  */
 export const WORKERS_STORAGE_KEY = "souksoft-workers";
+
+/**
+ * Key for persisting favorite product assignments.
+ */
+export const FAVORITE_PRODUCTS_KEY = "souksoft-favorite-products";

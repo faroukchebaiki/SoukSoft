@@ -40,6 +40,7 @@ import {
 
 import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
 import { Button } from "@/components/ui/button";
+import { FAVORITE_PRODUCTS_KEY } from "@/constants/storageKeys";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import { printReceipt } from "@/lib/printer";
 import type { CartItem, CatalogProduct, CheckoutTotals, ReceiptSettings } from "@/types";
@@ -78,6 +79,30 @@ const favoriteButtons = [
   { label: "FAV14", color: "bg-slate-200 text-slate-600" },
   { label: "FAV15", color: "bg-slate-200 text-slate-600" },
 ];
+const favoriteCategoryLabels = favoriteButtons.map((fav) => fav.label);
+const FAVORITES_ALL_CATEGORY = "All favorites";
+type FavoriteAssignments = Record<string, string[]>;
+
+function buildEmptyFavorites(): FavoriteAssignments {
+  return Object.fromEntries(favoriteCategoryLabels.map((label) => [label, []]));
+}
+
+function readFavoriteAssignments(): FavoriteAssignments {
+  if (typeof window === "undefined") return buildEmptyFavorites();
+  try {
+    const raw = window.localStorage.getItem(FAVORITE_PRODUCTS_KEY);
+    if (!raw) return buildEmptyFavorites();
+    const parsed = JSON.parse(raw) as Partial<FavoriteAssignments>;
+    const base = buildEmptyFavorites();
+    favoriteCategoryLabels.forEach((label) => {
+      const list = parsed?.[label];
+      base[label] = Array.isArray(list) ? list.filter((id): id is string => typeof id === "string") : [];
+    });
+    return base;
+  } catch {
+    return buildEmptyFavorites();
+  }
+}
 
 const keypadRows = [
   ["7", "8", "9"],
@@ -180,6 +205,9 @@ export function CounterPage({
   const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [productSort, setProductSort] = useState<"name-asc" | "price-asc" | "price-desc">("name-asc");
+  const [favoriteAssignments, setFavoriteAssignments] = useState<FavoriteAssignments>(() => readFavoriteAssignments());
+  const [activeFavoriteCategory, setActiveFavoriteCategory] = useState<string>(FAVORITES_ALL_CATEGORY);
+  const [favoriteMenuOpenId, setFavoriteMenuOpenId] = useState<string | null>(null);
   const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [isSortMenuOpen, setSortMenuOpen] = useState(false);
   const [isClientModalOpen, setClientModalOpen] = useState(false);
@@ -433,15 +461,67 @@ export function CounterPage({
     }
   }, [isPricePanelOpen, priceModalItem, pricePanelFocus]);
 
+  const favoriteProductIds = useMemo(() => {
+    const ids = new Set<string>();
+    favoriteCategoryLabels.forEach((label) => {
+      (favoriteAssignments[label] ?? []).forEach((id) => ids.add(id));
+    });
+    return ids;
+  }, [favoriteAssignments]);
+
+  const favoriteCountByCategory = useMemo(() => {
+    const counts: Record<string, number> = { [FAVORITES_ALL_CATEGORY]: 0 };
+    favoriteCategoryLabels.forEach((label) => {
+      const list = (favoriteAssignments[label] ?? []).filter((id) => favoriteProductIds.has(id));
+      counts[label] = list.length;
+      counts[FAVORITES_ALL_CATEGORY] += list.length;
+    });
+    counts[FAVORITES_ALL_CATEGORY] = favoriteProductIds.size;
+    return counts;
+  }, [favoriteAssignments, favoriteProductIds]);
+
+  const favoritesForActiveCategory = useMemo(() => {
+    if (activeFavoriteCategory === FAVORITES_ALL_CATEGORY) {
+      return availableProducts.filter((product) => favoriteProductIds.has(product.id));
+    }
+    const ids = new Set(favoriteAssignments[activeFavoriteCategory] ?? []);
+    return availableProducts.filter((product) => ids.has(product.id));
+  }, [activeFavoriteCategory, availableProducts, favoriteAssignments, favoriteProductIds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(FAVORITE_PRODUCTS_KEY, JSON.stringify(favoriteAssignments));
+  }, [favoriteAssignments]);
+
+  useEffect(() => {
+    if (!favoriteMenuOpenId) return;
+    const handleClose = () => setFavoriteMenuOpenId(null);
+    document.addEventListener("click", handleClose);
+    return () => document.removeEventListener("click", handleClose);
+  }, [favoriteMenuOpenId]);
+
+  const toggleFavorite = useCallback((productId: string, category: string) => {
+    if (!favoriteCategoryLabels.includes(category)) return;
+    setFavoriteAssignments((prev) => {
+      const current = prev[category] ?? [];
+      const exists = current.includes(productId);
+      const nextCategoryItems = exists ? current.filter((id) => id !== productId) : [...current, productId];
+      return { ...prev, [category]: nextCategoryItems };
+    });
+  }, []);
+
   const categories = useMemo(() => {
     const unique = Array.from(new Set(availableProducts.map((product) => product.category)));
     return ["all", ...unique];
   }, [availableProducts]);
 
   const filteredProducts = useMemo(() => {
+    const isFavoritesTab = activeTab === "Favoris";
+    const baseProducts = isFavoritesTab ? favoritesForActiveCategory : availableProducts;
     const normalized = productSearch.trim().toLowerCase();
-    const filtered = availableProducts.filter((product) => {
-      const matchesCategory = activeCategory === "all" || product.category === activeCategory;
+    const filtered = baseProducts.filter((product) => {
+      const matchesCategory =
+        isFavoritesTab || activeCategory === "all" || product.category === activeCategory;
       const matchesQuery =
         normalized.length === 0 ||
         product.name.toLowerCase().includes(normalized) ||
@@ -460,7 +540,7 @@ export function CounterPage({
       }
     });
     return sorted;
-  }, [availableProducts, activeCategory, productSearch, productSort]);
+  }, [activeTab, availableProducts, favoritesForActiveCategory, activeCategory, productSearch, productSort]);
 
   const historyEntries = useMemo(() => historyBaskets, [historyBaskets]);
 
@@ -634,6 +714,97 @@ export function CounterPage({
     },
     [upsertItem],
   );
+
+  const renderProductCard = (product: CatalogProduct) => {
+    const isFavorited = favoriteProductIds.has(product.id);
+    const favoriteTags = favoriteCategoryLabels.filter((label) =>
+      (favoriteAssignments[label] ?? []).includes(product.id),
+    );
+
+    return (
+      <div
+        key={product.id}
+        role="button"
+        tabIndex={0}
+        className="relative flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        onClick={() => handleProductCardClick(product)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleProductCardClick(product);
+          }
+        }}
+      >
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
+          Illustration
+        </div>
+        <div className="mt-3 space-y-1 text-muted-foreground">
+          <p className="text-sm font-semibold text-foreground">{product.name}</p>
+          <p className="text-xs">{product.sku}</p>
+          <p className="text-[13px] font-semibold text-emerald-600">{formatCurrency(product.price)}</p>
+          {favoriteTags.length ? (
+            <div className="flex flex-wrap gap-1 text-[10px]">
+              {favoriteTags.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full bg-amber-100 px-2 py-[2px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="absolute bottom-2 right-2">
+          <div className="relative">
+            <button
+              type="button"
+              className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold shadow-sm transition ${
+                isFavorited
+                  ? "border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200 dark:border-amber-500/60 dark:bg-amber-500/15 dark:text-amber-100"
+                  : "border-strong bg-panel-soft text-muted-foreground hover:border-emerald-500 hover:text-emerald-600"
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                setFavoriteMenuOpenId((previous) => (previous === product.id ? null : product.id));
+              }}
+            >
+              <Star className={`h-4 w-4 ${isFavorited ? "fill-current" : ""}`} />
+              Favori
+            </button>
+            {favoriteMenuOpenId === product.id ? (
+              <div className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-xl border border-strong bg-background text-sm shadow-2xl">
+                {favoriteCategoryLabels.map((label) => {
+                  const selected = (favoriteAssignments[label] ?? []).includes(product.id);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
+                        selected
+                          ? "bg-emerald-500/10 text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60"
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        toggleFavorite(product.id, label);
+                        setFavoriteMenuOpenId(null);
+                      }}
+                    >
+                      <span>{label}</span>
+                      {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const handleCancelBasket = useCallback(() => {
     if (selectedHistoryId) {
@@ -1325,25 +1496,7 @@ export function CounterPage({
                 </div>
                 <div className="mt-3 flex-1 overflow-auto">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-strong hover:shadow-lg"
-                        onClick={() => handleProductCardClick(product)}
-                      >
-                        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
-                          Illustration
-                        </div>
-                        <div className="mt-3 space-y-1 text-muted-foreground">
-                          <p className="text-sm font-semibold text-foreground">{product.name}</p>
-                          <p className="text-xs">{product.sku}</p>
-                          <p className="text-[13px] font-semibold text-emerald-600">
-                            {formatCurrency(product.price)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
+                    {filteredProducts.map((product) => renderProductCard(product))}
                     {filteredProducts.length === 0 ? (
                       <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
                         Aucun produit disponible.
@@ -1615,43 +1768,41 @@ export function CounterPage({
                     Favoris
                   </p>
                   <div className="flex-1 space-y-2 overflow-auto">
-                    {favoriteButtons.map((fav, index) => (
-                      <button
-                        key={fav.label}
-                        type="button"
-                        className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-xs font-semibold uppercase tracking-wide ${fav.color} shadow-sm`}
-                        onClick={() => setActiveCategory(categories[index] ?? "all")}
-                      >
-                        <span>{fav.label}</span>
-                      </button>
-                    ))}
+                    {[FAVORITES_ALL_CATEGORY, ...favoriteCategoryLabels].map((label) => {
+                      const palette =
+                        favoriteButtons.find((fav) => fav.label === label)?.color ??
+                        "border-strong bg-muted text-foreground";
+                      const isActive = activeFavoriteCategory === label;
+                      const count = favoriteCountByCategory[label] ?? 0;
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-xs font-semibold uppercase tracking-wide shadow-sm transition ${
+                            isActive
+                              ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                              : `${palette} border-strong hover:-translate-y-[1px] hover:border-emerald-500 hover:shadow`
+                          }`}
+                          onClick={() => setActiveFavoriteCategory(label)}
+                        >
+                          <span>{label === FAVORITES_ALL_CATEGORY ? "Tous les favoris" : label}</span>
+                          <span className="rounded-full bg-background/80 px-2 py-[2px] text-[10px] font-semibold text-foreground">
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </aside>
 
                 <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner min-h-0">
                   <div className="grid h-full grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        className="flex h-40 flex-col rounded-2xl border border-strong bg-background p-3 text-left text-xs shadow hover:border-strong hover:shadow-lg"
-                        onClick={() => handleProductCardClick(product)}
-                      >
-                        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-strong bg-panel-soft text-[10px] uppercase text-muted-foreground">
-                          Illustration
-                        </div>
-                        <div className="mt-3 space-y-1 text-muted-foreground">
-                          <p className="text-sm font-semibold text-foreground">{product.name}</p>
-                          <p className="text-xs">{product.sku}</p>
-                          <p className="text-[13px] font-semibold text-emerald-600">
-                            {formatCurrency(product.price)}
-                          </p>
-                        </div>
-                      </button>
+                      renderProductCard(product)
                     ))}
                     {filteredProducts.length === 0 ? (
                       <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">
-                        Aucun produit trouvé.
+                        Aucun produit favori pour cette catégorie.
                       </div>
                     ) : null}
                   </div>

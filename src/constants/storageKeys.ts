@@ -27,3 +27,8 @@ export const WORKERS_STORAGE_KEY = "souksoft-workers";
  * Key for persisting favorite product assignments.
  */
 export const FAVORITE_PRODUCTS_KEY = "souksoft-favorite-products";
+
+/**
+ * Key for persisting favorite category definitions.
+ */
+export const FAVORITE_CATEGORIES_KEY = "souksoft-favorite-categories";

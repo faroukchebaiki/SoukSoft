@@ -40,7 +40,7 @@ import {
 
 import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
 import { Button } from "@/components/ui/button";
-import { FAVORITE_PRODUCTS_KEY } from "@/constants/storageKeys";
+import { FAVORITE_CATEGORIES_KEY, FAVORITE_PRODUCTS_KEY } from "@/constants/storageKeys";
 import { formatCurrency, formatQuantity } from "@/lib/format";
 import { printReceipt } from "@/lib/printer";
 import type { CartItem, CatalogProduct, CheckoutTotals, ReceiptSettings } from "@/types";
@@ -62,45 +62,72 @@ const topTabs = [
   { label: "Historique", icon: ClipboardList },
 ];
 
-const favoriteButtons = [
-  { label: "مشروبات", color: "bg-amber-500 text-white" },
-  { label: "FAV2", color: "bg-emerald-600 text-white" },
-  { label: "FAV3", color: "bg-sky-600 text-white" },
-  { label: "FAV4", color: "bg-rose-900 text-white" },
-  { label: "FAV5", color: "bg-red-500 text-white" },
-  { label: "FAV6", color: "bg-gray-500 text-white" },
-  { label: "FAV7", color: "bg-lime-600 text-white" },
-  { label: "FAV8", color: "bg-cyan-700 text-white" },
-  { label: "FAV9", color: "bg-purple-800 text-white" },
-  { label: "FAV10", color: "bg-orange-600 text-white" },
-  { label: "FAV11", color: "bg-indigo-900 text-white" },
-  { label: "FAV12", color: "bg-slate-200 text-slate-600" },
-  { label: "FAV13", color: "bg-slate-200 text-slate-600" },
-  { label: "FAV14", color: "bg-slate-200 text-slate-600" },
-  { label: "FAV15", color: "bg-slate-200 text-slate-600" },
+type FavoriteCategory = { id: string; label: string; color: string };
+const favoriteColorOptions = [
+  "bg-amber-500 text-white",
+  "bg-emerald-600 text-white",
+  "bg-sky-600 text-white",
+  "bg-rose-900 text-white",
+  "bg-red-500 text-white",
+  "bg-gray-500 text-white",
+  "bg-lime-600 text-white",
+  "bg-cyan-700 text-white",
+  "bg-purple-800 text-white",
+  "bg-orange-600 text-white",
+  "bg-indigo-900 text-white",
+  "bg-slate-200 text-slate-600",
 ];
-const favoriteCategoryLabels = favoriteButtons.map((fav) => fav.label);
+
+const defaultFavoriteCategories: FavoriteCategory[] = [
+  { id: "fav-1", label: "مشروبات", color: "bg-amber-500 text-white" },
+  { id: "fav-2", label: "FAV2", color: "bg-emerald-600 text-white" },
+  { id: "fav-3", label: "FAV3", color: "bg-sky-600 text-white" },
+  { id: "fav-4", label: "FAV4", color: "bg-rose-900 text-white" },
+  { id: "fav-5", label: "FAV5", color: "bg-red-500 text-white" },
+  { id: "fav-6", label: "FAV6", color: "bg-gray-500 text-white" },
+  { id: "fav-7", label: "FAV7", color: "bg-lime-600 text-white" },
+  { id: "fav-8", label: "FAV8", color: "bg-cyan-700 text-white" },
+  { id: "fav-9", label: "FAV9", color: "bg-purple-800 text-white" },
+  { id: "fav-10", label: "FAV10", color: "bg-orange-600 text-white" },
+  { id: "fav-11", label: "FAV11", color: "bg-indigo-900 text-white" },
+  { id: "fav-12", label: "FAV12", color: "bg-slate-200 text-slate-600" },
+  { id: "fav-13", label: "FAV13", color: "bg-slate-200 text-slate-600" },
+  { id: "fav-14", label: "FAV14", color: "bg-slate-200 text-slate-600" },
+  { id: "fav-15", label: "FAV15", color: "bg-slate-200 text-slate-600" },
+];
 const FAVORITES_ALL_CATEGORY = "All favorites";
 type FavoriteAssignments = Record<string, string[]>;
 
-function buildEmptyFavorites(): FavoriteAssignments {
-  return Object.fromEntries(favoriteCategoryLabels.map((label) => [label, []]));
+function readFavoriteCategories(): FavoriteCategory[] {
+  if (typeof window === "undefined") return defaultFavoriteCategories;
+  try {
+    const raw = window.localStorage.getItem(FAVORITE_CATEGORIES_KEY);
+    if (!raw) return defaultFavoriteCategories;
+    const parsed = JSON.parse(raw) as FavoriteCategory[];
+    if (!Array.isArray(parsed)) return defaultFavoriteCategories;
+    const valid = parsed.filter((cat) => cat?.id && cat?.label);
+    if (!valid.length) return defaultFavoriteCategories;
+    return valid;
+  } catch {
+    return defaultFavoriteCategories;
+  }
 }
 
-function readFavoriteAssignments(): FavoriteAssignments {
-  if (typeof window === "undefined") return buildEmptyFavorites();
+function readFavoriteAssignments(categoryIds: string[]): FavoriteAssignments {
+  if (typeof window === "undefined") {
+    return Object.fromEntries(categoryIds.map((id) => [id, []]));
+  }
   try {
     const raw = window.localStorage.getItem(FAVORITE_PRODUCTS_KEY);
-    if (!raw) return buildEmptyFavorites();
-    const parsed = JSON.parse(raw) as Partial<FavoriteAssignments>;
-    const base = buildEmptyFavorites();
-    favoriteCategoryLabels.forEach((label) => {
-      const list = parsed?.[label];
-      base[label] = Array.isArray(list) ? list.filter((id): id is string => typeof id === "string") : [];
+    const parsed = raw ? (JSON.parse(raw) as Partial<FavoriteAssignments>) : {};
+    const base: FavoriteAssignments = {};
+    categoryIds.forEach((id) => {
+      const list = parsed?.[id];
+      base[id] = Array.isArray(list) ? list.filter((val): val is string => typeof val === "string") : [];
     });
     return base;
   } catch {
-    return buildEmptyFavorites();
+    return Object.fromEntries(categoryIds.map((id) => [id, []]));
   }
 }
 
@@ -205,10 +232,16 @@ export function CounterPage({
   const [productSearch, setProductSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [productSort, setProductSort] = useState<"name-asc" | "price-asc" | "price-desc">("name-asc");
-  const [favoriteAssignments, setFavoriteAssignments] = useState<FavoriteAssignments>(() => readFavoriteAssignments());
+  const [favoriteCategories, setFavoriteCategories] = useState<FavoriteCategory[]>(() => readFavoriteCategories());
+  const [favoriteAssignments, setFavoriteAssignments] = useState<FavoriteAssignments>(() =>
+    readFavoriteAssignments(readFavoriteCategories().map((cat) => cat.id)),
+  );
   const [activeFavoriteCategory, setActiveFavoriteCategory] = useState<string>(FAVORITES_ALL_CATEGORY);
   const [favoriteMenuOpenId, setFavoriteMenuOpenId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(() => new Set());
+  const [isManagingFavorites, setIsManagingFavorites] = useState(false);
+  const [newFavoriteName, setNewFavoriteName] = useState("");
+  const [newFavoriteColor, setNewFavoriteColor] = useState<string>(favoriteColorOptions[0]);
   const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [isSortMenuOpen, setSortMenuOpen] = useState(false);
   const [isClientModalOpen, setClientModalOpen] = useState(false);
@@ -464,22 +497,22 @@ export function CounterPage({
 
   const favoriteProductIds = useMemo(() => {
     const ids = new Set<string>();
-    favoriteCategoryLabels.forEach((label) => {
-      (favoriteAssignments[label] ?? []).forEach((id) => ids.add(id));
+    favoriteCategories.forEach((category) => {
+      (favoriteAssignments[category.id] ?? []).forEach((id) => ids.add(id));
     });
     return ids;
-  }, [favoriteAssignments]);
+  }, [favoriteAssignments, favoriteCategories]);
 
   const favoriteCountByCategory = useMemo(() => {
     const counts: Record<string, number> = { [FAVORITES_ALL_CATEGORY]: 0 };
-    favoriteCategoryLabels.forEach((label) => {
-      const list = (favoriteAssignments[label] ?? []).filter((id) => favoriteProductIds.has(id));
-      counts[label] = list.length;
+    favoriteCategories.forEach((category) => {
+      const list = (favoriteAssignments[category.id] ?? []).filter((id) => favoriteProductIds.has(id));
+      counts[category.id] = list.length;
       counts[FAVORITES_ALL_CATEGORY] += list.length;
     });
     counts[FAVORITES_ALL_CATEGORY] = favoriteProductIds.size;
     return counts;
-  }, [favoriteAssignments, favoriteProductIds]);
+  }, [favoriteAssignments, favoriteCategories, favoriteProductIds]);
 
   const favoritesForActiveCategory = useMemo(() => {
     if (activeFavoriteCategory === FAVORITES_ALL_CATEGORY) {
@@ -495,21 +528,48 @@ export function CounterPage({
   }, [favoriteAssignments]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(FAVORITE_CATEGORIES_KEY, JSON.stringify(favoriteCategories));
+  }, [favoriteCategories]);
+
+  useEffect(() => {
+    setFavoriteAssignments((prev) => {
+      const next: FavoriteAssignments = {};
+      favoriteCategories.forEach((category) => {
+        next[category.id] = prev[category.id] ?? [];
+      });
+      return next;
+    });
+  }, [favoriteCategories]);
+
+  useEffect(() => {
+    if (
+      activeFavoriteCategory !== FAVORITES_ALL_CATEGORY &&
+      !favoriteCategories.some((category) => category.id === activeFavoriteCategory)
+    ) {
+      setActiveFavoriteCategory(FAVORITES_ALL_CATEGORY);
+    }
+  }, [activeFavoriteCategory, favoriteCategories]);
+
+  useEffect(() => {
     if (!favoriteMenuOpenId) return;
     const handleClose = () => setFavoriteMenuOpenId(null);
     document.addEventListener("click", handleClose);
     return () => document.removeEventListener("click", handleClose);
   }, [favoriteMenuOpenId]);
 
-  const toggleFavorite = useCallback((productId: string, category: string) => {
-    if (!favoriteCategoryLabels.includes(category)) return;
-    setFavoriteAssignments((prev) => {
-      const current = prev[category] ?? [];
-      const exists = current.includes(productId);
-      const nextCategoryItems = exists ? current.filter((id) => id !== productId) : [...current, productId];
-      return { ...prev, [category]: nextCategoryItems };
-    });
-  }, []);
+  const toggleFavorite = useCallback(
+    (productId: string, categoryId: string) => {
+      if (!favoriteCategories.some((cat) => cat.id === categoryId)) return;
+      setFavoriteAssignments((prev) => {
+        const current = prev[categoryId] ?? [];
+        const exists = current.includes(productId);
+        const nextCategoryItems = exists ? current.filter((id) => id !== productId) : [...current, productId];
+        return { ...prev, [categoryId]: nextCategoryItems };
+      });
+    },
+    [favoriteCategories],
+  );
 
   const toggleProductSelection = useCallback((productId: string) => {
     setSelectedProductIds((prev) => {
@@ -526,17 +586,55 @@ export function CounterPage({
   const clearSelection = useCallback(() => setSelectedProductIds(new Set()), []);
 
   const handleBulkAddToFavorite = useCallback(
-    (category: string) => {
-      if (!favoriteCategoryLabels.includes(category) || selectedProductIds.size === 0) return;
+    (categoryId: string) => {
+      if (!favoriteCategories.some((cat) => cat.id === categoryId) || selectedProductIds.size === 0) return;
       setFavoriteAssignments((prev) => {
-        const existing = prev[category] ?? [];
+        const existing = prev[categoryId] ?? [];
         const merged = new Set(existing);
         selectedProductIds.forEach((id) => merged.add(id));
-        return { ...prev, [category]: Array.from(merged) };
+        return { ...prev, [categoryId]: Array.from(merged) };
       });
       clearSelection();
     },
-    [clearSelection, selectedProductIds],
+    [clearSelection, favoriteCategories, selectedProductIds],
+  );
+
+  const handleAddFavoriteCategory = useCallback(() => {
+    const trimmed = newFavoriteName.trim();
+    const label = trimmed || `Favori ${favoriteCategories.length + 1}`;
+    const id = crypto.randomUUID?.() ?? `fav-${Date.now()}`;
+    const color = newFavoriteColor || favoriteColorOptions[0];
+    setFavoriteCategories((prev) => [...prev, { id, label, color }]);
+    setFavoriteAssignments((prev) => ({ ...prev, [id]: [] }));
+    setNewFavoriteName("");
+  }, [favoriteCategories.length, newFavoriteColor, newFavoriteName]);
+
+  const handleDeleteFavoriteCategory = useCallback(
+    (categoryId: string) => {
+      setFavoriteCategories((prev) => prev.filter((category) => category.id !== categoryId));
+      setFavoriteAssignments((prev) => {
+        const next = { ...prev };
+        delete next[categoryId];
+        return next;
+      });
+      if (activeFavoriteCategory === categoryId) {
+        setActiveFavoriteCategory(FAVORITES_ALL_CATEGORY);
+      }
+    },
+    [activeFavoriteCategory],
+  );
+
+  const handleRenameFavoriteCategory = useCallback(
+    (categoryId: string) => {
+      const target = favoriteCategories.find((category) => category.id === categoryId);
+      if (!target) return;
+      const nextLabel = window.prompt("Nouveau nom du favori :", target.label)?.trim();
+      if (!nextLabel) return;
+      setFavoriteCategories((prev) =>
+        prev.map((category) => (category.id === categoryId ? { ...category, label: nextLabel } : category)),
+      );
+    },
+    [favoriteCategories],
   );
 
   const categories = useMemo(() => {
@@ -765,8 +863,8 @@ export function CounterPage({
   const renderProductCard = (product: CatalogProduct) => {
     const isFavorited = favoriteProductIds.has(product.id);
     const isSelected = selectedProductIds.has(product.id);
-    const favoriteTags = favoriteCategoryLabels.filter((label) =>
-      (favoriteAssignments[label] ?? []).includes(product.id),
+    const favoriteTags = favoriteCategories.filter((category) =>
+      (favoriteAssignments[category.id] ?? []).includes(product.id),
     );
 
     return (
@@ -819,12 +917,12 @@ export function CounterPage({
           <p className="text-[13px] font-semibold text-emerald-600">{formatCurrency(product.price)}</p>
           {favoriteTags.length ? (
             <div className="flex flex-wrap gap-1 text-[10px]">
-              {favoriteTags.map((label) => (
+              {favoriteTags.map((category) => (
                 <span
-                  key={label}
+                  key={category.id}
                   className="rounded-full bg-amber-100 px-2 py-[2px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
                 >
-                  {label}
+                  {category.label}
                 </span>
               ))}
             </div>
@@ -852,11 +950,11 @@ export function CounterPage({
               </span>
               {favoriteMenuOpenId === product.id ? (
                 <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 overflow-hidden rounded-xl border border-strong bg-background text-sm shadow-2xl">
-                  {favoriteCategoryLabels.map((label) => {
-                    const selected = (favoriteAssignments[label] ?? []).includes(product.id);
+                  {favoriteCategories.map((category) => {
+                    const selected = (favoriteAssignments[category.id] ?? []).includes(product.id);
                     return (
                       <button
-                        key={label}
+                        key={category.id}
                         type="button"
                         className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
                           selected
@@ -866,11 +964,11 @@ export function CounterPage({
                         onClick={(event) => {
                           event.stopPropagation();
                           event.preventDefault();
-                          toggleFavorite(product.id, label);
+                          toggleFavorite(product.id, category.id);
                           setFavoriteMenuOpenId(null);
                         }}
                       >
-                        <span>{label}</span>
+                        <span>{category.label}</span>
                         {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
                       </button>
                     );
@@ -1606,9 +1704,9 @@ export function CounterPage({
                     }}
                   >
                     <option value="">Ajouter aux favoris…</option>
-                    {favoriteCategoryLabels.map((label) => (
-                      <option key={label} value={label}>
-                        {label}
+                    {favoriteCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
                       </option>
                     ))}
                   </select>
@@ -1883,32 +1981,98 @@ export function CounterPage({
             ) : (
               <>
                 <aside className="flex w-48 flex-col rounded-2xl border border-strong bg-panel p-3 text-xs shadow-inner">
-                  <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
-                    Favoris
-                  </p>
-                  <div className="flex-1 space-y-2 overflow-auto">
-                    {[FAVORITES_ALL_CATEGORY, ...favoriteCategoryLabels].map((label) => {
-                      const palette =
-                        favoriteButtons.find((fav) => fav.label === label)?.color ??
-                        "border-strong bg-muted text-foreground";
-                      const isActive = activeFavoriteCategory === label;
-                      const count = favoriteCountByCategory[label] ?? 0;
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-xs font-semibold uppercase tracking-wide shadow-sm transition ${
-                            isActive
-                              ? "border-emerald-500 bg-emerald-500/10 text-foreground"
-                              : `${palette} border-strong hover:-translate-y-[1px] hover:border-emerald-500 hover:shadow`
-                          }`}
-                          onClick={() => setActiveFavoriteCategory(label)}
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
+                      Favoris
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 rounded-full px-2 text-[11px]"
+                      onClick={() => setIsManagingFavorites((prev) => !prev)}
+                    >
+                      {isManagingFavorites ? "Terminer" : "Gérer"}
+                    </Button>
+                  </div>
+                  {isManagingFavorites ? (
+                    <div className="mb-2 space-y-2 rounded-xl border border-strong bg-panel-soft p-2">
+                      <div className="space-y-2">
+                        <input
+                          className="w-full rounded-lg border border-strong bg-background px-2 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Nom du favori"
+                          value={newFavoriteName}
+                          onChange={(event) => setNewFavoriteName(event.target.value)}
+                        />
+                        <select
+                          className="w-full rounded-lg border border-strong bg-background px-2 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={newFavoriteColor}
+                          onChange={(event) => setNewFavoriteColor(event.target.value)}
                         >
-                          <span>{label === FAVORITES_ALL_CATEGORY ? "Tous les favoris" : label}</span>
-                          <span className="rounded-full bg-background/80 px-2 py-[2px] text-[10px] font-semibold text-foreground">
-                            {count}
-                          </span>
-                        </button>
+                          {favoriteColorOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option.replace("bg-", "").split(" ")[0]}
+                            </option>
+                          ))}
+                        </select>
+                        <Button size="sm" className="w-full rounded-full" onClick={handleAddFavoriteCategory}>
+                          <Plus className="h-4 w-4" />
+                          Ajouter
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="flex-1 space-y-2 overflow-auto">
+                    {[{ id: FAVORITES_ALL_CATEGORY, label: "Tous les favoris", color: "border-strong bg-muted text-foreground" }, ...favoriteCategories].map((entry) => {
+                      const isAll = entry.id === FAVORITES_ALL_CATEGORY;
+                      const palette = entry.color || "border-strong bg-muted text-foreground";
+                      const isActive = activeFavoriteCategory === entry.id;
+                      const count = favoriteCountByCategory[entry.id] ?? (isAll ? favoriteProductIds.size : 0);
+                      return (
+                        <div key={entry.id} className="group relative">
+                          <button
+                            type="button"
+                            className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-xs font-semibold uppercase tracking-wide shadow-sm transition ${
+                              isActive
+                                ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                                : `${palette} border-strong hover:-translate-y-[1px] hover:border-emerald-500 hover:shadow`
+                            }`}
+                            onClick={() => setActiveFavoriteCategory(entry.id)}
+                          >
+                            <span>{entry.label}</span>
+                            <span className="rounded-full bg-background/80 px-2 py-[2px] text-[10px] font-semibold text-foreground">
+                              {count}
+                            </span>
+                          </button>
+                          {!isAll && isManagingFavorites ? (
+                            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 rounded-full bg-background/70"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleRenameFavoriteCategory(entry.id);
+                                }}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 rounded-full bg-background/70 text-destructive hover:bg-destructive/10"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  const confirmed = window.confirm("Supprimer cette catégorie de favoris ?");
+                                  if (confirmed) {
+                                    handleDeleteFavoriteCategory(entry.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>
@@ -1949,9 +2113,9 @@ export function CounterPage({
                       }}
                     >
                       <option value="">Ajouter aux favoris…</option>
-                      {favoriteCategoryLabels.map((label) => (
-                        <option key={label} value={label}>
-                          {label}
+                      {favoriteCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.label}
                         </option>
                       ))}
                     </select>

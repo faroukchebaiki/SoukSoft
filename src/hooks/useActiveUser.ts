@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getAllowedSections } from "@/constants/permissions";
 import { USER_STORAGE_KEY } from "@/constants/storageKeys";
@@ -10,8 +10,26 @@ import type { AccountProfile, Section } from "@/types";
 function resolveStoredUserId(accounts: AccountProfile[], fallbackUserId: string | null): string | null {
   if (typeof window === "undefined") return fallbackUserId;
   const stored = window.localStorage.getItem(USER_STORAGE_KEY);
-  if (stored && accounts.some((user) => user.id === stored)) return stored;
+  if (stored && accounts.some((user) => user.id === stored && !user.archived)) return stored;
   return fallbackUserId;
+}
+
+function pickActiveAccountId(
+  accounts: AccountProfile[],
+  candidates: Array<string | null>,
+  fallbackUserId: string | null,
+): string | null {
+  for (const id of candidates) {
+    if (!id) continue;
+    const match = accounts.find((account) => account.id === id && !account.archived);
+    if (match) return match.id;
+  }
+  if (fallbackUserId) {
+    const fallback = accounts.find((account) => account.id === fallbackUserId && !account.archived);
+    if (fallback) return fallback.id;
+  }
+  const firstActive = accounts.find((account) => !account.archived);
+  return firstActive ? firstActive.id : null;
 }
 
 /**
@@ -23,9 +41,10 @@ export function useActiveUser(accounts: AccountProfile[], fallbackUserId: string
   activeUser: AccountProfile | null;
   allowedSections: Section[];
 } {
-  const [activeUserId, setActiveUserId] = useState<string | null>(() =>
-    resolveStoredUserId(accounts, fallbackUserId),
-  );
+  const [activeUserId, setActiveUserId] = useState<string | null>(() => {
+    const stored = resolveStoredUserId(accounts, fallbackUserId);
+    return pickActiveAccountId(accounts, [stored], fallbackUserId);
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -37,17 +56,15 @@ export function useActiveUser(accounts: AccountProfile[], fallbackUserId: string
   }, [activeUserId]);
 
   useEffect(() => {
-    if (!accounts.length) {
-      setActiveUserId(null);
-      return;
-    }
-    setActiveUserId((previous) => {
-      if (previous && accounts.some((account) => account.id === previous)) {
-        return previous;
-      }
-      return accounts[0].id;
-    });
-  }, [accounts]);
+    setActiveUserId((previous) => pickActiveAccountId(accounts, [previous], fallbackUserId));
+  }, [accounts, fallbackUserId]);
+
+  const safeSetActiveUserId = useCallback(
+    (id: string | null) => {
+      setActiveUserId((previous) => pickActiveAccountId(accounts, [id, previous], fallbackUserId));
+    },
+    [accounts, fallbackUserId],
+  );
 
   const activeUser = useMemo(
     () => accounts.find((user) => user.id === activeUserId) ?? null,
@@ -59,5 +76,5 @@ export function useActiveUser(accounts: AccountProfile[], fallbackUserId: string
     [activeUser],
   );
 
-  return { activeUserId, setActiveUserId, activeUser, allowedSections };
+  return { activeUserId, setActiveUserId: safeSetActiveUserId, activeUser, allowedSections };
 }

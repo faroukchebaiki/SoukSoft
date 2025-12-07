@@ -19,6 +19,7 @@ function readStoredWorkers(): WorkerProfile[] {
       contractType: worker.contractType ?? "Full-time",
       weeklyHours: worker.weeklyHours ?? 40,
       jobTitle: worker.jobTitle ?? worker.role,
+      source: worker.source ?? "manual",
     }));
   } catch {
     return DEMO_WORKERS;
@@ -59,7 +60,8 @@ function syncWorkersWithAccounts(workers: WorkerProfile[], accounts: AccountProf
     existingMap.delete(account.id);
   });
   existingMap.forEach((worker) => {
-    if (worker.source === "manual") next.push(worker);
+    const source = worker.source ?? "manual";
+    if (source === "manual") next.push({ ...worker, source });
   });
   return next;
 }
@@ -84,12 +86,13 @@ export function useWorkers(accounts: AccountProfile[]): {
   }, [accounts]);
 
   const upsertWorker = (worker: WorkerProfile) => {
+    const normalizedWorker = { ...worker, source: worker.source ?? "manual" };
     setWorkers((previous) => {
-      const exists = previous.some((entry) => entry.id === worker.id);
+      const exists = previous.some((entry) => entry.id === normalizedWorker.id);
       if (exists) {
-        return previous.map((entry) => (entry.id === worker.id ? worker : entry));
+        return previous.map((entry) => (entry.id === normalizedWorker.id ? normalizedWorker : entry));
       }
-      return [...previous, worker];
+      return [...previous, normalizedWorker];
     });
   };
 

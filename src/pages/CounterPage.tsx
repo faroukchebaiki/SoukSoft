@@ -231,6 +231,7 @@ export function CounterPage({
   const [renameFavoriteId, setRenameFavoriteId] = useState<string | null>(null);
   const [renameDraftName, setRenameDraftName] = useState("");
   const [deleteFavoriteId, setDeleteFavoriteId] = useState<string | null>(null);
+  const [showBasketNavigation, setShowBasketNavigation] = useState(true);
   const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [isSortMenuOpen, setSortMenuOpen] = useState(false);
   const [isClientModalOpen, setClientModalOpen] = useState(false);
@@ -2362,7 +2363,8 @@ export function CounterPage({
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-4 min-h-[200px]">
+            {showBasketNavigation ? (
+              <div className="mt-3 rounded-2xl border border-strong bg-panel-soft p-4 min-h-[200px]">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                   Navigation paniers
@@ -2449,6 +2451,7 @@ export function CounterPage({
                 </div>
               )}
             </div>
+            ) : null}
           </div>
         </aside>
       </div>
@@ -2506,6 +2509,21 @@ export function CounterPage({
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <button
+                    type="button"
+                    className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition ${
+                      showBasketNavigation
+                        ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                        : "border-border bg-panel-soft text-muted-foreground hover:border-strong"
+                    }`}
+                    onClick={() => setShowBasketNavigation((prev) => !prev)}
+                  >
+                    <span className="flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4" />
+                      Navigation paniers
+                    </span>
+                    <span className="text-[11px] font-semibold">{showBasketNavigation ? "Visible" : "Masquée"}</span>
+                  </button>
                   {(
                     [
                       { key: "showPrice", label: "Bouton Prix" },

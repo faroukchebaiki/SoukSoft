@@ -63,37 +63,23 @@ const topTabs = [
 ];
 
 type FavoriteCategory = { id: string; label: string; color: string };
-const favoriteColorOptions = [
-  "bg-amber-500 text-white",
-  "bg-emerald-600 text-white",
-  "bg-sky-600 text-white",
-  "bg-rose-900 text-white",
-  "bg-red-500 text-white",
-  "bg-gray-500 text-white",
-  "bg-lime-600 text-white",
-  "bg-cyan-700 text-white",
-  "bg-purple-800 text-white",
-  "bg-orange-600 text-white",
-  "bg-indigo-900 text-white",
-  "bg-slate-200 text-slate-600",
-];
 
 const defaultFavoriteCategories: FavoriteCategory[] = [
-  { id: "fav-1", label: "مشروبات", color: "bg-amber-500 text-white" },
-  { id: "fav-2", label: "FAV2", color: "bg-emerald-600 text-white" },
-  { id: "fav-3", label: "FAV3", color: "bg-sky-600 text-white" },
-  { id: "fav-4", label: "FAV4", color: "bg-rose-900 text-white" },
-  { id: "fav-5", label: "FAV5", color: "bg-red-500 text-white" },
-  { id: "fav-6", label: "FAV6", color: "bg-gray-500 text-white" },
-  { id: "fav-7", label: "FAV7", color: "bg-lime-600 text-white" },
-  { id: "fav-8", label: "FAV8", color: "bg-cyan-700 text-white" },
-  { id: "fav-9", label: "FAV9", color: "bg-purple-800 text-white" },
-  { id: "fav-10", label: "FAV10", color: "bg-orange-600 text-white" },
-  { id: "fav-11", label: "FAV11", color: "bg-indigo-900 text-white" },
-  { id: "fav-12", label: "FAV12", color: "bg-slate-200 text-slate-600" },
-  { id: "fav-13", label: "FAV13", color: "bg-slate-200 text-slate-600" },
-  { id: "fav-14", label: "FAV14", color: "bg-slate-200 text-slate-600" },
-  { id: "fav-15", label: "FAV15", color: "bg-slate-200 text-slate-600" },
+  { id: "fav-1", label: "مشروبات", color: "#f59e0b" },
+  { id: "fav-2", label: "FAV2", color: "#059669" },
+  { id: "fav-3", label: "FAV3", color: "#0284c7" },
+  { id: "fav-4", label: "FAV4", color: "#7f1d1d" },
+  { id: "fav-5", label: "FAV5", color: "#ef4444" },
+  { id: "fav-6", label: "FAV6", color: "#6b7280" },
+  { id: "fav-7", label: "FAV7", color: "#65a30d" },
+  { id: "fav-8", label: "FAV8", color: "#0e7490" },
+  { id: "fav-9", label: "FAV9", color: "#6d28d9" },
+  { id: "fav-10", label: "FAV10", color: "#ea580c" },
+  { id: "fav-11", label: "FAV11", color: "#312e81" },
+  { id: "fav-12", label: "FAV12", color: "#e5e7eb" },
+  { id: "fav-13", label: "FAV13", color: "#e5e7eb" },
+  { id: "fav-14", label: "FAV14", color: "#e5e7eb" },
+  { id: "fav-15", label: "FAV15", color: "#e5e7eb" },
 ];
 const FAVORITES_ALL_CATEGORY = "All favorites";
 type FavoriteAssignments = Record<string, string[]>;
@@ -105,7 +91,7 @@ function readFavoriteCategories(): FavoriteCategory[] {
     if (!raw) return defaultFavoriteCategories;
     const parsed = JSON.parse(raw) as FavoriteCategory[];
     if (!Array.isArray(parsed)) return defaultFavoriteCategories;
-    const valid = parsed.filter((cat) => cat?.id && cat?.label);
+    const valid = parsed.filter((cat) => cat?.id && cat?.label && cat?.color);
     if (!valid.length) return defaultFavoriteCategories;
     return valid;
   } catch {
@@ -241,7 +227,10 @@ export function CounterPage({
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(() => new Set());
   const [isManagingFavorites, setIsManagingFavorites] = useState(false);
   const [newFavoriteName, setNewFavoriteName] = useState("");
-  const [newFavoriteColor, setNewFavoriteColor] = useState<string>(favoriteColorOptions[0]);
+  const [newFavoriteColor, setNewFavoriteColor] = useState<string>(defaultFavoriteCategories[0]?.color ?? "#0ea5e9");
+  const [renameFavoriteId, setRenameFavoriteId] = useState<string | null>(null);
+  const [renameDraftName, setRenameDraftName] = useState("");
+  const [deleteFavoriteId, setDeleteFavoriteId] = useState<string | null>(null);
   const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [isSortMenuOpen, setSortMenuOpen] = useState(false);
   const [isClientModalOpen, setClientModalOpen] = useState(false);
@@ -603,39 +592,50 @@ export function CounterPage({
     const trimmed = newFavoriteName.trim();
     const label = trimmed || `Favori ${favoriteCategories.length + 1}`;
     const id = crypto.randomUUID?.() ?? `fav-${Date.now()}`;
-    const color = newFavoriteColor || favoriteColorOptions[0];
+    const color = newFavoriteColor || "#0ea5e9";
     setFavoriteCategories((prev) => [...prev, { id, label, color }]);
     setFavoriteAssignments((prev) => ({ ...prev, [id]: [] }));
     setNewFavoriteName("");
   }, [favoriteCategories.length, newFavoriteColor, newFavoriteName]);
 
-  const handleDeleteFavoriteCategory = useCallback(
-    (categoryId: string) => {
-      setFavoriteCategories((prev) => prev.filter((category) => category.id !== categoryId));
-      setFavoriteAssignments((prev) => {
-        const next = { ...prev };
-        delete next[categoryId];
-        return next;
-      });
-      if (activeFavoriteCategory === categoryId) {
-        setActiveFavoriteCategory(FAVORITES_ALL_CATEGORY);
-      }
-    },
-    [activeFavoriteCategory],
-  );
+  const handleDeleteFavoriteCategory = useCallback((categoryId: string) => {
+    setDeleteFavoriteId(categoryId);
+  }, []);
+
+  const confirmDeleteFavoriteCategory = useCallback(() => {
+    if (!deleteFavoriteId) return;
+    setFavoriteCategories((prev) => prev.filter((category) => category.id !== deleteFavoriteId));
+    setFavoriteAssignments((prev) => {
+      const next = { ...prev };
+      delete next[deleteFavoriteId];
+      return next;
+    });
+    if (activeFavoriteCategory === deleteFavoriteId) {
+      setActiveFavoriteCategory(FAVORITES_ALL_CATEGORY);
+    }
+    setDeleteFavoriteId(null);
+  }, [activeFavoriteCategory, deleteFavoriteId]);
 
   const handleRenameFavoriteCategory = useCallback(
     (categoryId: string) => {
       const target = favoriteCategories.find((category) => category.id === categoryId);
       if (!target) return;
-      const nextLabel = window.prompt("Nouveau nom du favori :", target.label)?.trim();
-      if (!nextLabel) return;
-      setFavoriteCategories((prev) =>
-        prev.map((category) => (category.id === categoryId ? { ...category, label: nextLabel } : category)),
-      );
+      setRenameFavoriteId(categoryId);
+      setRenameDraftName(target.label);
     },
     [favoriteCategories],
   );
+
+  const confirmRenameFavoriteCategory = useCallback(() => {
+    if (!renameFavoriteId) return;
+    const label = renameDraftName.trim();
+    if (!label) return;
+    setFavoriteCategories((prev) =>
+      prev.map((category) => (category.id === renameFavoriteId ? { ...category, label } : category)),
+    );
+    setRenameFavoriteId(null);
+    setRenameDraftName("");
+  }, [renameDraftName, renameFavoriteId]);
 
   const categories = useMemo(() => {
     const unique = Array.from(new Set(availableProducts.map((product) => product.category)));
@@ -2003,17 +2003,15 @@ export function CounterPage({
                           value={newFavoriteName}
                           onChange={(event) => setNewFavoriteName(event.target.value)}
                         />
-                        <select
-                          className="w-full rounded-lg border border-strong bg-background px-2 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                          value={newFavoriteColor}
-                          onChange={(event) => setNewFavoriteColor(event.target.value)}
-                        >
-                          {favoriteColorOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option.replace("bg-", "").split(" ")[0]}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                          Couleur
+                          <input
+                            type="color"
+                            className="h-9 w-14 cursor-pointer rounded border border-strong bg-background p-1"
+                            value={newFavoriteColor}
+                            onChange={(event) => setNewFavoriteColor(event.target.value)}
+                          />
+                        </label>
                         <Button size="sm" className="w-full rounded-full" onClick={handleAddFavoriteCategory}>
                           <Plus className="h-4 w-4" />
                           Ajouter
@@ -2022,9 +2020,9 @@ export function CounterPage({
                     </div>
                   ) : null}
                   <div className="flex-1 space-y-2 overflow-auto">
-                    {[{ id: FAVORITES_ALL_CATEGORY, label: "Tous les favoris", color: "border-strong bg-muted text-foreground" }, ...favoriteCategories].map((entry) => {
+                    {[{ id: FAVORITES_ALL_CATEGORY, label: "Tous les favoris", color: "#e5e7eb" }, ...favoriteCategories].map((entry) => {
                       const isAll = entry.id === FAVORITES_ALL_CATEGORY;
-                      const palette = entry.color || "border-strong bg-muted text-foreground";
+                      const textColor = getContrastTextColor(entry.color);
                       const isActive = activeFavoriteCategory === entry.id;
                       const count = favoriteCountByCategory[entry.id] ?? (isAll ? favoriteProductIds.size : 0);
                       return (
@@ -2032,10 +2030,13 @@ export function CounterPage({
                           <button
                             type="button"
                             className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-xs font-semibold uppercase tracking-wide shadow-sm transition ${
-                              isActive
-                                ? "border-emerald-500 bg-emerald-500/10 text-foreground"
-                                : `${palette} border-strong hover:-translate-y-[1px] hover:border-emerald-500 hover:shadow`
+                              isActive ? "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background" : ""
                             }`}
+                            style={{
+                              backgroundColor: entry.color,
+                              color: textColor,
+                              borderColor: entry.color,
+                            }}
                             onClick={() => setActiveFavoriteCategory(entry.id)}
                           >
                             <span>{entry.label}</span>
@@ -2062,10 +2063,7 @@ export function CounterPage({
                                 className="h-7 w-7 rounded-full bg-background/70 text-destructive hover:bg-destructive/10"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  const confirmed = window.confirm("Supprimer cette catégorie de favoris ?");
-                                  if (confirmed) {
-                                    handleDeleteFavoriteCategory(entry.id);
-                                  }
+                                  handleDeleteFavoriteCategory(entry.id);
                                 }}
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -2135,6 +2133,52 @@ export function CounterPage({
             )}
           </div>
         </div>
+
+        {(renameFavoriteId || deleteFavoriteId) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+            <div className="w-[min(420px,96vw)] rounded-2xl border border-strong bg-background p-4 shadow-2xl">
+              {renameFavoriteId ? (
+                <>
+                  <h3 className="text-lg font-semibold">Renommer le favori</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Modifiez le nom de cette catégorie.</p>
+                  <input
+                    className="mt-3 w-full rounded-lg border border-strong bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    value={renameDraftName}
+                    onChange={(event) => setRenameDraftName(event.target.value)}
+                    autoFocus
+                  />
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button variant="ghost" className="rounded-full" onClick={() => setRenameFavoriteId(null)}>
+                      Annuler
+                    </Button>
+                    <Button className="rounded-full" onClick={confirmRenameFavoriteCategory} disabled={!renameDraftName.trim()}>
+                      Enregistrer
+                    </Button>
+                  </div>
+                </>
+              ) : null}
+              {deleteFavoriteId ? (
+                <>
+                  <h3 className="text-lg font-semibold">Supprimer le favori</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Cette catégorie sera supprimée, mais les produits resteront dans l&apos;inventaire.
+                  </p>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button variant="ghost" className="rounded-full" onClick={() => setDeleteFavoriteId(null)}>
+                      Annuler
+                    </Button>
+                    <Button
+                      className="rounded-full bg-red-500 text-white hover:bg-red-600"
+                      onClick={confirmDeleteFavoriteCategory}
+                    >
+                      Supprimer
+                    </Button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
 
         <aside className="flex w-full max-w-lg gap-3 overflow-hidden">
           <div className="flex w-24 flex-col gap-2 rounded-2xl border border-strong bg-panel-soft p-2 text-[11px] shadow-inner">
@@ -2806,4 +2850,14 @@ export function CounterPage({
       ) : null}
     </div>
   );
+}
+function getContrastTextColor(hex: string): string {
+  const normalized = hex.startsWith("#") ? hex.slice(1) : hex;
+  if (![3, 6].includes(normalized.length)) return "#111827";
+  const full = normalized.length === 3 ? normalized.split("").map((c) => c + c).join("") : normalized;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#111827" : "#ffffff";
 }

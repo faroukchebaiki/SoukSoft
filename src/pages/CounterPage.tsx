@@ -37,6 +37,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { ReceiptPreview, type ReceiptPreviewItem } from "@/components/receipt/ReceiptPreview";
 import { Button } from "@/components/ui/button";
@@ -224,6 +225,19 @@ export function CounterPage({
   );
   const [activeFavoriteCategory, setActiveFavoriteCategory] = useState<string>(FAVORITES_ALL_CATEGORY);
   const [favoriteMenuOpenId, setFavoriteMenuOpenId] = useState<string | null>(null);
+  const [favoriteMenuStyle, setFavoriteMenuStyle] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const [bulkFavoritesMenuOpen, setBulkFavoritesMenuOpen] = useState(false);
+  const [bulkFavoritesMenuStyle, setBulkFavoritesMenuStyle] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(() => new Set());
   const [isManagingFavorites, setIsManagingFavorites] = useState(false);
   const [newFavoriteName, setNewFavoriteName] = useState("");
@@ -547,6 +561,13 @@ export function CounterPage({
     document.addEventListener("click", handleClose);
     return () => document.removeEventListener("click", handleClose);
   }, [favoriteMenuOpenId]);
+
+  useEffect(() => {
+    if (!bulkFavoritesMenuOpen) return;
+    const handleClose = () => setBulkFavoritesMenuOpen(false);
+    document.addEventListener("click", handleClose);
+    return () => document.removeEventListener("click", handleClose);
+  }, [bulkFavoritesMenuOpen]);
 
   const toggleFavorite = useCallback(
     (productId: string, categoryId: string) => {
@@ -941,6 +962,32 @@ export function CounterPage({
                   event.stopPropagation();
                   event.preventDefault();
                   setFavoriteMenuOpenId((previous) => (previous === product.id ? null : product.id));
+                  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                  const viewportHeight = window.innerHeight;
+                  const spaceBelow = viewportHeight - rect.bottom;
+                  const spaceAbove = rect.top;
+                  const availableBelow = spaceBelow - 20;
+                  const availableAbove = spaceAbove - 20;
+                  let placement: "top" | "bottom" = availableBelow >= availableAbove ? "bottom" : "top";
+                  let available = placement === "bottom" ? availableBelow : availableAbove;
+                  if (available < 140 && availableBelow > available) {
+                    placement = "bottom";
+                    available = availableBelow;
+                  } else if (available < 140 && availableAbove > available) {
+                    placement = "top";
+                    available = availableAbove;
+                  }
+                  const maxHeight = Math.max(140, Math.min(320, available));
+                  const width = 224;
+                  const left = Math.min(
+                    Math.max(rect.left + window.scrollX - 8, 8),
+                    window.innerWidth - width - 8,
+                  );
+                  const top =
+                    placement === "bottom"
+                      ? rect.bottom + 6 + window.scrollY
+                      : rect.top - maxHeight - 6 + window.scrollY;
+                  setFavoriteMenuStyle({ top, left, width, maxHeight });
                 }}
                 aria-label={isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
               >
@@ -949,33 +996,44 @@ export function CounterPage({
               <span className="pointer-events-none absolute right-full top-1/2 mr-2 w-max -translate-y-1/2 rounded-md bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 shadow-sm transition group-hover:opacity-100">
                 {isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
               </span>
-              {favoriteMenuOpenId === product.id ? (
-                <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 overflow-hidden rounded-xl border border-strong bg-background text-sm shadow-2xl">
-                  {favoriteCategories.map((category) => {
-                    const selected = (favoriteAssignments[category.id] ?? []).includes(product.id);
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
-                          selected
-                            ? "bg-emerald-500/10 text-foreground"
-                            : "text-muted-foreground hover:bg-muted/60"
-                        }`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          event.preventDefault();
-                          toggleFavorite(product.id, category.id);
-                          setFavoriteMenuOpenId(null);
-                        }}
-                      >
-                        <span>{category.label}</span>
-                        {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
+              {favoriteMenuOpenId === product.id && favoriteMenuStyle
+                ? createPortal(
+                    <div
+                      className="fixed z-40 w-56 overflow-auto rounded-xl border border-border bg-card text-sm shadow-2xl backdrop-blur-md"
+                      style={{
+                        top: favoriteMenuStyle.top,
+                        left: favoriteMenuStyle.left,
+                        maxHeight: favoriteMenuStyle.maxHeight,
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {favoriteCategories.map((category) => {
+                        const selected = (favoriteAssignments[category.id] ?? []).includes(product.id);
+                        return (
+                          <button
+                            key={category.id}
+                            type="button"
+                            className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
+                              selected
+                                ? "bg-emerald-500/10 text-foreground"
+                                : "text-muted-foreground hover:bg-emerald-500/10 hover:text-foreground"
+                            }`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              event.preventDefault();
+                              toggleFavorite(product.id, category.id);
+                              setFavoriteMenuOpenId(null);
+                            }}
+                          >
+                            <span>{category.label}</span>
+                            {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>,
+                    document.body,
+                  )
+                : null}
             </div>
           </div>
         </div>
@@ -1693,24 +1751,40 @@ export function CounterPage({
                   >
                     Effacer la sélection
                   </Button>
-                  <select
-                    className="h-9 min-w-[180px] rounded-full border border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                    disabled={selectedProductIds.size === 0}
-                    defaultValue=""
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      if (!value) return;
-                      handleBulkAddToFavorite(value);
-                      event.currentTarget.value = "";
-                    }}
-                  >
-                    <option value="">Ajouter aux favoris…</option>
-                    {favoriteCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      disabled={selectedProductIds.size === 0}
+                      className="flex h-9 min-w-[180px] items-center justify-between rounded-full border border-strong bg-background px-3 text-sm font-medium text-foreground shadow-inner transition focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (selectedProductIds.size === 0) return;
+                        const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                        const viewportHeight = window.innerHeight;
+                        const spaceBelow = viewportHeight - rect.bottom;
+                        const spaceAbove = rect.top;
+                        const availableBelow = spaceBelow - 20;
+                        const availableAbove = spaceAbove - 20;
+                        const width = rect.width;
+                        const available = Math.max(availableBelow, availableAbove);
+                        const maxHeight = Math.max(140, Math.min(320, available));
+                        const top =
+                          availableBelow >= availableAbove
+                            ? rect.bottom + 6 + window.scrollY
+                            : rect.top - maxHeight - 6 + window.scrollY;
+                        const left = Math.min(
+                          Math.max(rect.left + window.scrollX, 8),
+                          window.innerWidth - width - 8,
+                        );
+                        setBulkFavoritesMenuStyle({ top, left, width, maxHeight });
+                        setBulkFavoritesMenuOpen(true);
+                      }}
+                    >
+                      Ajouter aux favoris…
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    <div className="pointer-events-none absolute inset-0 rounded-full border border-border/60 shadow-inner" />
+                  </div>
                 </div>
                 <div className="mt-3 flex-1 overflow-auto">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -2100,24 +2174,40 @@ export function CounterPage({
                     >
                       Effacer la sélection
                     </Button>
-                    <select
-                      className="h-9 min-w-[180px] rounded-full border border-strong bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                      disabled={selectedProductIds.size === 0}
-                      defaultValue=""
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        if (!value) return;
-                        handleBulkAddToFavorite(value);
-                        event.currentTarget.value = "";
-                      }}
-                    >
-                      <option value="">Ajouter aux favoris…</option>
-                      {favoriteCategories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        disabled={selectedProductIds.size === 0}
+                        className="flex h-9 min-w-[180px] items-center justify-between rounded-full border border-strong bg-background px-3 text-sm font-medium text-foreground shadow-inner transition focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (selectedProductIds.size === 0) return;
+                          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                          const viewportHeight = window.innerHeight;
+                          const spaceBelow = viewportHeight - rect.bottom;
+                          const spaceAbove = rect.top;
+                          const availableBelow = spaceBelow - 20;
+                          const availableAbove = spaceAbove - 20;
+                          const width = rect.width;
+                          const available = Math.max(availableBelow, availableAbove);
+                          const maxHeight = Math.max(140, Math.min(320, available));
+                          const top =
+                            availableBelow >= availableAbove
+                              ? rect.bottom + 6 + window.scrollY
+                              : rect.top - maxHeight - 6 + window.scrollY;
+                          const left = Math.min(
+                            Math.max(rect.left + window.scrollX, 8),
+                            window.innerWidth - width - 8,
+                          );
+                          setBulkFavoritesMenuStyle({ top, left, width, maxHeight });
+                          setBulkFavoritesMenuOpen(true);
+                        }}
+                      >
+                        Ajouter aux favoris…
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      <div className="pointer-events-none absolute inset-0 rounded-full border border-border/60 shadow-inner" />
+                    </div>
                   </div>
                   <div className="flex-1 overflow-auto">
                     <div className="grid grid-cols-1 gap-3 content-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -2134,6 +2224,48 @@ export function CounterPage({
             )}
           </div>
         </div>
+
+        {bulkFavoritesMenuOpen && bulkFavoritesMenuStyle
+          ? createPortal(
+              <div
+                className="fixed z-40 w-[min(240px,90vw)] overflow-auto rounded-xl border border-border bg-card text-sm shadow-2xl backdrop-blur-md"
+                style={{
+                  top: bulkFavoritesMenuStyle.top,
+                  left: bulkFavoritesMenuStyle.left,
+                  maxHeight: bulkFavoritesMenuStyle.maxHeight,
+                }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {favoriteCategories.map((category) => {
+                  const selected =
+                    selectedProductIds.size > 0 &&
+                    Array.from(selectedProductIds).every((id) =>
+                      (favoriteAssignments[category.id] ?? []).includes(id),
+                    );
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
+                        selected
+                          ? "bg-emerald-500/10 text-foreground"
+                          : "text-muted-foreground hover:bg-emerald-500/10 hover:text-foreground"
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleBulkAddToFavorite(category.id);
+                        setBulkFavoritesMenuOpen(false);
+                      }}
+                    >
+                      <span>{category.label}</span>
+                      {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null}
+                    </button>
+                  );
+                })}
+              </div>,
+              document.body,
+            )
+          : null}
 
         {(renameFavoriteId || deleteFavoriteId) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">

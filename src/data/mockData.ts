@@ -337,7 +337,28 @@ export const catalogProducts: CatalogProduct[] = [
     stockQty: 47,
     barcode: "6023456789012",
   },
-];
+] as CatalogProduct[];
+
+const generatedCatalogProducts: CatalogProduct[] = Array.from({ length: 50 }, (_, index) => {
+  const num = index + 1;
+  const id = `CAT-20${String(num).padStart(2, "0")}`;
+  const sku = `GEN-${String(num).padStart(3, "0")}`;
+  const categories = ["Pantry", "Produce", "Dairy", "Beverages", "Household"];
+  const category = categories[index % categories.length];
+  return {
+    id,
+    name: `Marketplace item ${String(num).padStart(2, "0")}`,
+    sku,
+    category,
+    unit: "pcs",
+    price: 150 + num * 5,
+    stockQty: 50 - (num % 10),
+    minQty: 5,
+    barcode: `2000${String(num).padStart(9, "0")}`,
+  };
+});
+
+catalogProducts.push(...generatedCatalogProducts);
 
 export const purchaseHistory: PurchaseHistoryEntry[] = [
   {

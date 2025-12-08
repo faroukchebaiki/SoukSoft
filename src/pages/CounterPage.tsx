@@ -241,7 +241,7 @@ export function CounterPage({
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(() => new Set());
   const [isManagingFavorites, setIsManagingFavorites] = useState(false);
   const [newFavoriteName, setNewFavoriteName] = useState("");
-  const [newFavoriteColor, setNewFavoriteColor] = useState<string>(defaultFavoriteCategories[0]?.color ?? "#0ea5e9");
+  const [newFavoriteColor, setNewFavoriteColor] = useState<string>("");
   const [renameFavoriteId, setRenameFavoriteId] = useState<string | null>(null);
   const [renameDraftName, setRenameDraftName] = useState("");
   const [deleteFavoriteId, setDeleteFavoriteId] = useState<string | null>(null);
@@ -501,9 +501,11 @@ export function CounterPage({
 
   const favoriteProductIds = useMemo(() => {
     const ids = new Set<string>();
-    favoriteCategories.forEach((category) => {
-      (favoriteAssignments[category.id] ?? []).forEach((id) => ids.add(id));
-    });
+    for (const category of favoriteCategories) {
+      for (const id of favoriteAssignments[category.id] ?? []) {
+        ids.add(id);
+      }
+    }
     return ids;
   }, [favoriteAssignments, favoriteCategories]);
 
@@ -545,6 +547,30 @@ export function CounterPage({
       return next;
     });
   }, [favoriteCategories]);
+
+  const favoritesSeededRef = useRef(false);
+  useEffect(() => {
+    if (favoritesSeededRef.current) return;
+    if (!favoriteCategories.length || !availableProducts.length) return;
+    const hasExisting = Object.values(favoriteAssignments ?? {}).some((list) => list && list.length > 0);
+    if (hasExisting) {
+      favoritesSeededRef.current = true;
+      return;
+    }
+    const sampleProducts = availableProducts.slice(0, 30).map((product) => product.id);
+    const seeded: FavoriteAssignments = {};
+    favoriteCategories.forEach((category) => {
+      seeded[category.id] = [];
+    });
+    sampleProducts.forEach((id, index) => {
+      const category = favoriteCategories[index % favoriteCategories.length];
+      if (category) {
+        seeded[category.id].push(id);
+      }
+    });
+    setFavoriteAssignments(seeded);
+    favoritesSeededRef.current = true;
+  }, [availableProducts, favoriteAssignments, favoriteCategories]);
 
   useEffect(() => {
     if (
@@ -602,7 +628,9 @@ export function CounterPage({
       setFavoriteAssignments((prev) => {
         const existing = prev[categoryId] ?? [];
         const merged = new Set(existing);
-        selectedProductIds.forEach((id) => merged.add(id));
+        for (const id of selectedProductIds) {
+          merged.add(id);
+        }
         return { ...prev, [categoryId]: Array.from(merged) };
       });
       clearSelection();
@@ -614,7 +642,7 @@ export function CounterPage({
     const trimmed = newFavoriteName.trim();
     const label = trimmed || `Favori ${favoriteCategories.length + 1}`;
     const id = crypto.randomUUID?.() ?? `fav-${Date.now()}`;
-    const color = newFavoriteColor || "#0ea5e9";
+    const color = newFavoriteColor || "";
     setFavoriteCategories((prev) => [...prev, { id, label, color }]);
     setFavoriteAssignments((prev) => ({ ...prev, [id]: [] }));
     setNewFavoriteName("");
@@ -694,20 +722,24 @@ export function CounterPage({
   const handleSelectAllFiltered = useCallback(() => {
     setSelectedProductIds((prev) => {
       const next = new Set(prev);
-      filteredProducts.forEach((product) => next.add(product.id));
+      for (const product of filteredProducts) {
+        next.add(product.id);
+      }
       return next;
     });
   }, [filteredProducts]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clear selection whenever tab changes.
   useEffect(() => {
     clearSelection();
-  }, [activeTab, clearSelection]);
+  }, [activeTab]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ensure selection resets when switching favorite category view.
   useEffect(() => {
     if (activeTab === "Favoris") {
       clearSelection();
     }
-  }, [activeFavoriteCategory, activeTab, clearSelection]);
+  }, [activeFavoriteCategory, activeTab]);
 
   const historyEntries = useMemo(() => historyBaskets, [historyBaskets]);
 
@@ -890,39 +922,25 @@ export function CounterPage({
     );
 
     return (
-      <div
+      <button
         key={product.id}
-        role="button"
-        tabIndex={0}
+        type="button"
         className={`relative flex h-60 w-full flex-col rounded-2xl border bg-background p-3 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
           isSelected ? "border-emerald-500 ring-1 ring-emerald-200" : "border-strong"
         }`}
         onClick={() => handleProductCardClick(product)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            handleProductCardClick(product);
-          }
-        }}
       >
         <div className="absolute left-2 top-2">
-          <label
-            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-strong bg-background shadow-sm transition hover:border-emerald-500"
-            onClick={(event) => event.stopPropagation()}
+          <button
+            type="button"
+            className="flex h-5 w-5 items-center justify-center rounded border border-strong bg-background shadow-sm transition hover:border-emerald-500"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleProductSelection(product.id);
+            }}
           >
-            <input
-              type="checkbox"
-              className="sr-only"
-              checked={isSelected}
-              onChange={(event) => {
-                event.stopPropagation();
-                toggleProductSelection(product.id);
-              }}
-            />
-            <div
-              className={`h-3 w-3 rounded-sm ${isSelected ? "bg-emerald-500" : "bg-transparent"}`}
-            />
-          </label>
+            <div className={`h-3 w-3 rounded-sm ${isSelected ? "bg-emerald-500" : "bg-transparent"}`} />
+          </button>
         </div>
         <div className="mb-3 h-24 w-full rounded-xl border border-dashed border-strong bg-panel-soft text-[11px] uppercase text-muted-foreground">
           <div className="flex h-full items-center justify-center">Illustration</div>
@@ -999,6 +1017,8 @@ export function CounterPage({
               {favoriteMenuOpenId === product.id && favoriteMenuStyle
                 ? createPortal(
                     <div
+                      role="menu"
+                      tabIndex={-1}
                       className="fixed z-40 w-56 overflow-auto rounded-xl border border-border bg-card text-sm shadow-2xl backdrop-blur-md"
                       style={{
                         top: favoriteMenuStyle.top,
@@ -1006,6 +1026,12 @@ export function CounterPage({
                         maxHeight: favoriteMenuStyle.maxHeight,
                       }}
                       onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.stopPropagation();
+                          setFavoriteMenuOpenId(null);
+                        }
+                      }}
                     >
                       {favoriteCategories.map((category) => {
                         const selected = (favoriteAssignments[category.id] ?? []).includes(product.id);
@@ -1037,7 +1063,7 @@ export function CounterPage({
             </div>
           </div>
         </div>
-      </div>
+      </button>
     );
   };
 
@@ -2095,9 +2121,9 @@ export function CounterPage({
                     </div>
                   ) : null}
                   <div className="flex-1 space-y-2 overflow-auto">
-                    {[{ id: FAVORITES_ALL_CATEGORY, label: "Tous les favoris", color: "#e5e7eb" }, ...favoriteCategories].map((entry) => {
+                    {[{ id: FAVORITES_ALL_CATEGORY, label: "Tous les favoris", color: "var(--card)" }, ...favoriteCategories].map((entry) => {
                       const isAll = entry.id === FAVORITES_ALL_CATEGORY;
-                      const textColor = getContrastTextColor(entry.color);
+                      const textColor = "var(--foreground)";
                       const isActive = activeFavoriteCategory === entry.id;
                       const count = favoriteCountByCategory[entry.id] ?? (isAll ? favoriteProductIds.size : 0);
                       return (
@@ -2109,13 +2135,19 @@ export function CounterPage({
                             }`}
                             style={{
                               backgroundColor: entry.color,
-                              color: textColor,
-                              borderColor: entry.color,
+                              color: isAll ? "var(--foreground)" : textColor,
+                              borderColor: entry.id === FAVORITES_ALL_CATEGORY ? "var(--border)" : entry.color,
                             }}
                             onClick={() => setActiveFavoriteCategory(entry.id)}
                           >
                             <span>{entry.label}</span>
-                            <span className="rounded-full bg-background/80 px-2 py-[2px] text-[10px] font-semibold text-foreground">
+                            <span
+                              className="rounded-full px-2 py-[2px] text-[10px] font-semibold"
+                              style={{
+                                backgroundColor: "rgba(0,0,0,0.12)",
+                                color: isAll ? "var(--foreground)" : textColor,
+                              }}
+                            >
                               {count}
                             </span>
                           </button>
@@ -2228,6 +2260,8 @@ export function CounterPage({
         {bulkFavoritesMenuOpen && bulkFavoritesMenuStyle
           ? createPortal(
               <div
+                role="menu"
+                tabIndex={-1}
                 className="fixed z-40 w-[min(240px,90vw)] overflow-auto rounded-xl border border-border bg-card text-sm shadow-2xl backdrop-blur-md"
                 style={{
                   top: bulkFavoritesMenuStyle.top,
@@ -2235,6 +2269,12 @@ export function CounterPage({
                   maxHeight: bulkFavoritesMenuStyle.maxHeight,
                 }}
                 onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.stopPropagation();
+                    setBulkFavoritesMenuOpen(false);
+                  }
+                }}
               >
                 {favoriteCategories.map((category) => {
                   const selected =
@@ -2278,7 +2318,6 @@ export function CounterPage({
                     className="mt-3 w-full rounded-lg border border-strong bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={renameDraftName}
                     onChange={(event) => setRenameDraftName(event.target.value)}
-                    autoFocus
                   />
                   <div className="mt-4 flex justify-end gap-2">
                     <Button variant="ghost" className="rounded-full" onClick={() => setRenameFavoriteId(null)}>
@@ -3000,14 +3039,4 @@ export function CounterPage({
       ) : null}
     </div>
   );
-}
-function getContrastTextColor(hex: string): string {
-  const normalized = hex.startsWith("#") ? hex.slice(1) : hex;
-  if (![3, 6].includes(normalized.length)) return "#111827";
-  const full = normalized.length === 3 ? normalized.split("").map((c) => c + c).join("") : normalized;
-  const r = parseInt(full.slice(0, 2), 16);
-  const g = parseInt(full.slice(2, 4), 16);
-  const b = parseInt(full.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#111827" : "#ffffff";
 }

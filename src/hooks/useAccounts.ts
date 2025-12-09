@@ -48,7 +48,16 @@ function generateUniqueUsername(base: string, accounts: AccountProfile[]): strin
  * Ensure the account list always contains at least one manager account.
  */
 function ensureManagerPresence(accounts: AccountProfile[]): AccountProfile[] {
-  if (accounts.some((account) => account.role === "Manager")) return accounts;
+  const activeManager = accounts.find((account) => account.role === "Manager" && !account.archived);
+  if (activeManager) return accounts;
+
+  const archivedManagerIndex = accounts.findIndex((account) => account.role === "Manager");
+  if (archivedManagerIndex >= 0) {
+    const next = [...accounts];
+    next[archivedManagerIndex] = { ...next[archivedManagerIndex], archived: false };
+    return next;
+  }
+
   const username = generateUniqueUsername("manager", accounts);
   const fallbackManager = buildAccountRecord({
     firstName: "Restored",
@@ -86,7 +95,7 @@ export function useAccounts(): {
   }, [accounts]);
 
   const hasManager = useMemo(
-    () => accounts.some((account) => account.role === "Manager"),
+    () => accounts.some((account) => account.role === "Manager" && !account.archived),
     [accounts],
   );
 
@@ -135,7 +144,11 @@ export function useAccounts(): {
 
   const archiveAccount = (id: string, archived: boolean) => {
     setAccounts((previous) =>
-      previous.map((account) => (account.id === id ? { ...account, archived } : account)),
+      previous.map((account) => {
+        if (account.id !== id) return account;
+        if (account.role === "Manager" && archived) return account;
+        return { ...account, archived };
+      }),
     );
   };
 

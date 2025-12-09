@@ -652,6 +652,24 @@ export function CounterPage({
     [clearSelection, favoriteCategories, selectedProductIds],
   );
 
+  const handleBulkRemoveFromFavorites = useCallback(() => {
+    if (selectedProductIds.size === 0) return;
+    setFavoriteAssignments((prev) => {
+      const next = { ...prev };
+      const targets =
+        activeFavoriteCategory === FAVORITES_ALL_CATEGORY
+          ? favoriteCategories.map((category) => category.id)
+          : [activeFavoriteCategory];
+      targets.forEach((categoryId) => {
+        const current = next[categoryId];
+        if (!current) return;
+        next[categoryId] = current.filter((id) => !selectedProductIds.has(id));
+      });
+      return next;
+    });
+    clearSelection();
+  }, [activeFavoriteCategory, clearSelection, favoriteCategories, selectedProductIds]);
+
   const handleAddFavoriteCategory = useCallback(() => {
     const trimmed = newFavoriteName.trim();
     const label = trimmed || `Favori ${favoriteCategories.length + 1}`;
@@ -2224,6 +2242,16 @@ export function CounterPage({
                       onClick={clearSelection}
                     >
                       Effacer la sélection
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full px-3"
+                      disabled={selectedProductIds.size === 0}
+                      onClick={handleBulkRemoveFromFavorites}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Retirer des favoris
                     </Button>
                     <div className="relative">
                       <button

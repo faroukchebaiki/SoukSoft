@@ -360,7 +360,7 @@ const generatedCatalogProducts: CatalogProduct[] = Array.from({ length: 50 }, (_
 
 catalogProducts.push(...generatedCatalogProducts);
 
-export const purchaseHistory: PurchaseHistoryEntry[] = [
+const purchaseHistorySeed: PurchaseHistoryEntry[] = [
   {
     id: "RCPT-9821",
     cashier: "Lina B.",
@@ -445,6 +445,32 @@ export const purchaseHistory: PurchaseHistoryEntry[] = [
     notes: "Caterer order cleared on account.",
   },
 ];
+
+const generatedHistory: PurchaseHistoryEntry[] = Array.from({ length: 95 }, (_, index) => {
+  const base = purchaseHistorySeed[index % purchaseHistorySeed.length];
+  const idNumber = 9816 - index;
+  const id = idNumber > 0 ? `RCPT-${idNumber}` : `RCPT-AUTO-${String(index + 1).padStart(3, "0")}`;
+  const totalOffset = (index % 5) * 120;
+  const minute = String((index * 7) % 60).padStart(2, "0");
+  const hour = String(9 + Math.floor((index * 7) / 60)).padStart(2, "0");
+  return {
+    ...base,
+    id,
+    total: base.total + totalOffset,
+    completedAt: `${hour}:${minute}`,
+    customerName: base.customerName ?? "Client de passage",
+    paymentMethod:
+      index % 4 === 0
+        ? "Cash"
+        : index % 4 === 1
+          ? "CIB card"
+          : index % 4 === 2
+            ? "Edahabia card"
+            : "Store voucher",
+  };
+});
+
+export const purchaseHistory: PurchaseHistoryEntry[] = [...purchaseHistorySeed, ...generatedHistory];
 
 export const personalSettingsOptions: SettingOption[] = [
   {

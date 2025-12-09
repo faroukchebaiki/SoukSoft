@@ -1,7 +1,6 @@
-import { Clock9, History as HistoryIcon, Home, ReceiptText, Trash2, X } from "lucide-react";
+import { Home, ReceiptText, Trash2, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
@@ -35,7 +34,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const [historyEntries, setHistoryEntries] = useState(entries);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditReceiptFormState>(emptyEditForm);
-  const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>(() => getAuditLog());
+  const [_auditEntries, setAuditEntries] = useState<AuditLogEntry[]>(() => getAuditLog());
 
   useEffect(() => {
     setHistoryEntries(entries);
@@ -97,6 +96,8 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   }, [selectedEntry]);
 
   const totalCollected = historyEntries.reduce((sum, entry) => sum + entry.total, 0);
+  const todayTotal = totalCollected;
+  const todayAverage = historyEntries.length > 0 ? todayTotal / historyEntries.length : 0;
 
   const handleSelectEntry = (entry: PurchaseHistoryEntry) => {
     setSelectedEntryId(entry.id);
@@ -139,22 +140,16 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     handleCloseDetail();
   };
 
-  const latestAuditEntries = auditEntries.slice(0, 10);
-
   return (
-    <main className="page-shell flex-1 overflow-hidden px-6 py-6 lg:px-8">
+    <main className="page-shell flex h-screen flex-1 flex-col overflow-hidden px-6 pt-6 pb-0 lg:px-8">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">History</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Historique</h1>
           <p className="text-sm text-muted-foreground">
-            Every purchase logged with timestamps, payment methods, and cashier notes.
+            Chaque vente enregistrée avec horodatage, moyen de paiement et notes du caissier.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="w-fit gap-2">
-            <HistoryIcon className="h-4 w-4" />
-            {historyEntries.length} receipts today
-          </Badge>
           <Button variant="secondary" className="gap-2 rounded-full" onClick={onGoHome}>
             <Home className="h-4 w-4" />
             Home (Esc)
@@ -164,119 +159,96 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Total collected</CardTitle>
-            <CardDescription>Sum of all validated baskets</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardTitle className="whitespace-nowrap">Total encaissé</CardTitle>
+            <span className="text-2xl font-semibold tracking-tight">
+              {formatCurrency(totalCollected)}
+            </span>
           </CardHeader>
-          <CardContent className="text-3xl font-semibold tracking-tight">
-            {formatCurrency(totalCollected)}
-          </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Average ticket</CardTitle>
-            <CardDescription>Across {entries.length} purchases</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardTitle className="whitespace-nowrap">Total encaissé aujourd&apos;hui</CardTitle>
+            <span className="text-2xl font-semibold tracking-tight">
+              {historyEntries.length > 0 ? formatCurrency(todayTotal) : "—"}
+            </span>
           </CardHeader>
-          <CardContent className="text-3xl font-semibold tracking-tight">
-            {historyEntries.length > 0 ? formatCurrency(totalCollected / historyEntries.length) : "—"}
-          </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Last receipt</CardTitle>
-            <CardDescription>Time the most recent basket closed</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardTitle className="whitespace-nowrap">Moyenne du jour</CardTitle>
+            <span className="text-2xl font-semibold tracking-tight">
+              {historyEntries.length > 0 ? formatCurrency(todayAverage) : "—"}
+            </span>
           </CardHeader>
-          <CardContent className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-            <Clock9 className="h-6 w-6 text-muted-foreground" />
-            {historyEntries[0]?.completedAt ?? "—"}
-          </CardContent>
         </Card>
       </div>
 
-      <Card className="mt-6">
+      <Card className="mt-6 flex min-h-0 flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ReceiptText className="h-5 w-5 text-muted-foreground" />
-            Purchase log
+            Journal des tickets
           </CardTitle>
           <CardDescription>
-            Most recent receipts appear first. Use the register export to retrieve more history.
+            Les tickets les plus récents sont listés en premier.
           </CardDescription>
         </CardHeader>
-        <CardContent className="rounded-md border p-0">
-          <div className="max-h-[65vh] overflow-auto">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs uppercase text-muted-foreground backdrop-blur">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Receipt</th>
-                  <th className="px-4 py-2 font-medium">Cashier</th>
-                  <th className="px-4 py-2 font-medium text-right">Items</th>
-                  <th className="px-4 py-2 font-medium text-right">Total</th>
-                  <th className="px-4 py-2 font-medium text-right">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border bg-background">
-                {historyEntries.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className="cursor-pointer transition-colors hover:bg-muted/40"
-                    onClick={() => handleSelectEntry(entry)}
-                  >
-                    <td className="px-4 py-3 font-medium">{entry.id}</td>
-                    <td className="px-4 py-3">{entry.cashier}</td>
-                    <td className="px-4 py-3 text-right">{entry.items}</td>
-                    <td className="px-4 py-3 text-right font-semibold">
-                      {formatCurrency(entry.total)}
-                    </td>
-                    <td className="px-4 py-3 text-right">{entry.completedAt}</td>
+        <CardContent className="flex min-h-0 flex-1 flex-col rounded-md border p-0">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 overflow-auto">
+                <table className="min-w-full border border-border border-separate border-spacing-0 text-sm">
+                <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs uppercase text-muted-foreground backdrop-blur">
+                  <tr>
+                    <th className="border border-border px-3 py-2 font-medium">Ticket</th>
+                    <th className="border border-border px-3 py-2 text-center font-medium">Panier</th>
+                    <th className="border border-border px-3 py-2 font-medium">Caissier</th>
+                    <th className="border border-border px-3 py-2 font-medium">Client</th>
+                    <th className="border border-border px-3 py-2 text-right font-medium">Articles</th>
+                    <th className="border border-border px-3 py-2 text-right font-medium">Total</th>
+                    <th className="border border-border px-3 py-2 text-right font-medium">Heure</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {historyEntries.length === 0 ? (
+                    <tr>
+                      <td
+                        className="border border-border px-4 py-6 text-center text-sm text-muted-foreground"
+                        colSpan={7}
+                      >
+                        Aucun ticket pour le moment.
+                      </td>
+                    </tr>
+                  ) : (
+                    historyEntries.map((entry, index) => {
+                      const basketNumber = historyEntries.length - index;
+                      return (
+                        <tr
+                          key={entry.id}
+                          className="cursor-pointer transition-colors hover:bg-muted/40"
+                          onClick={() => handleSelectEntry(entry)}
+                        >
+                          <td className="border border-border px-3 py-2 font-semibold">{entry.id}</td>
+                          <td className="border border-border px-3 py-2 text-center text-muted-foreground">
+                            {basketNumber}
+                          </td>
+                          <td className="border border-border px-3 py-2">{entry.cashier}</td>
+                          <td className="border border-border px-3 py-2 text-muted-foreground">
+                            {entry.customerName ?? "Client de passage"}
+                          </td>
+                          <td className="border border-border px-3 py-2 text-right">{entry.items}</td>
+                          <td className="border border-border px-3 py-2 text-right font-semibold">
+                            {formatCurrency(entry.total)}
+                          </td>
+                          <td className="border border-border px-3 py-2 text-right">{entry.completedAt}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Catalog audit trail</CardTitle>
-          <CardDescription>
-            Recent actions from the product builder, imports, and undo operations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {latestAuditEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No catalog updates logged yet. Manual edits and imports will appear here.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {latestAuditEntries.map((entry) => (
-                <li key={entry.id} className="rounded-2xl border bg-card/60 p-4">
-                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="uppercase">
-                          {entry.action}
-                        </Badge>
-                        <p className="font-semibold">{entry.summary}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.actor} · {new Date(entry.timestamp).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  {entry.details?.length ? (
-                    <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-                      {entry.details.map((detail, index) => (
-                        <li key={`${entry.id}-${index}`}>{detail}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
         </CardContent>
       </Card>
 
@@ -287,15 +259,15 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
               <CardHeader className="flex flex-col gap-4 pb-0 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle className="text-2xl">
-                    Receipt {selectedEntry.id}
+                    Ticket {selectedEntry.id}
                   </CardTitle>
                   <CardDescription>
-                    Logged at {selectedEntry.completedAt} · Sold by {selectedEntry.cashier}
+                    Enregistré à {selectedEntry.completedAt} · Vendu par {selectedEntry.cashier}
                   </CardDescription>
                 </div>
                 <Button variant="ghost" onClick={handleCloseDetail} className="gap-2">
                   <X className="h-4 w-4" />
-                  Close
+                  Fermer
                 </Button>
               </CardHeader>
               <CardContent className="flex-1 space-y-6 overflow-y-auto pt-6 pr-1">
@@ -303,18 +275,18 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                   <section className="flex-1 space-y-6">
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       <div className="rounded-2xl border bg-card/60 p-4">
-                        <p className="text-xs uppercase text-muted-foreground">Customer</p>
+                        <p className="text-xs uppercase text-muted-foreground">Client</p>
                         <p className="text-base font-semibold text-card-foreground">
-                          {selectedEntry.customerName ?? "Walk-in guest"}
+                          {selectedEntry.customerName ?? "Client de passage"}
                         </p>
                         {selectedEntry.customerId ? (
                           <p className="text-xs text-muted-foreground">
-                            ID: {selectedEntry.customerId}
+                            ID : {selectedEntry.customerId}
                           </p>
                         ) : null}
                       </div>
                       <div className="rounded-2xl border bg-card/60 p-4">
-                        <p className="text-xs uppercase text-muted-foreground">Items</p>
+                        <p className="text-xs uppercase text-muted-foreground">Articles</p>
                         <p className="text-base font-semibold text-card-foreground">
                           {selectedEntry.items}
                         </p>
@@ -332,18 +304,18 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
 
                     <div className="rounded-2xl border">
                       <div className="flex items-center justify-between border-b px-4 py-2 text-xs uppercase text-muted-foreground">
-                        <span>Line items</span>
-                        <span>{selectedEntry.lineItems?.length ?? 0} entries</span>
+                        <span>Lignes d&apos;article</span>
+                        <span>{selectedEntry.lineItems?.length ?? 0} entrées</span>
                       </div>
                       <div className="max-h-[45vh] overflow-auto">
                         <table className="min-w-full text-sm">
                           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                             <tr>
-                              <th className="px-4 py-2 text-left font-medium">Item</th>
+                              <th className="px-4 py-2 text-left font-medium">Article</th>
                               <th className="px-4 py-2 text-left font-medium">SKU</th>
-                              <th className="px-4 py-2 text-right font-medium">Qty</th>
-                              <th className="px-4 py-2 text-right font-medium">Price</th>
-                              <th className="px-4 py-2 text-right font-medium">Line total</th>
+                              <th className="px-4 py-2 text-right font-medium">Qté</th>
+                              <th className="px-4 py-2 text-right font-medium">Prix</th>
+                              <th className="px-4 py-2 text-right font-medium">Total ligne</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border bg-background">
@@ -371,7 +343,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                                   className="px-4 py-4 text-center text-muted-foreground"
                                   colSpan={5}
                                 >
-                                  No line items recorded for this receipt.
+                                  Aucune ligne enregistrée pour ce ticket.
                                 </td>
                               </tr>
                             ) : null}
@@ -386,11 +358,11 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                     onSubmit={handleUpdateEntry}
                   >
                     <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                      Manage receipt
+                      Gérer le ticket
                     </p>
                     <div className="grid gap-4">
                       <label className="text-sm font-medium">
-                        Cashier
+                        Caissier
                         <input
                           className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
                           value={editForm.cashier}
@@ -398,7 +370,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Customer name
+                        Nom client
                         <input
                           className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
                           value={editForm.customerName}
@@ -408,7 +380,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Customer ID
+                        ID client
                         <input
                           className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
                           value={editForm.customerId}
@@ -418,7 +390,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Completed at
+                        Heure
                         <input
                           className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
                           value={editForm.completedAt}
@@ -428,7 +400,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                         />
                       </label>
                       <label className="text-sm font-medium">
-                        Total amount (DA)
+                        Montant total (DA)
                         <input
                           type="number"
                           min="0"
@@ -448,16 +420,16 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                       />
                     </label>
                     <div className="rounded-2xl border bg-background/80 p-3 text-sm text-muted-foreground">
-                      <p className="font-medium text-card-foreground">Summary</p>
+                      <p className="font-medium text-card-foreground">Synthèse</p>
                       <p>
-                        Subtotal: <span className="font-semibold">{formatCurrency(lineSubtotal)}</span>
+                        Sous-total : <span className="font-semibold">{formatCurrency(lineSubtotal)}</span>
                       </p>
                       <p>
-                        Recorded total:{" "}
+                        Total enregistré :{" "}
                         <span className="font-semibold">{formatCurrency(selectedEntry.total)}</span>
                       </p>
                       <p>
-                        Adjustment:{" "}
+                        Ajustement :{" "}
                         <span className="font-semibold">
                           {formatCurrency(selectedEntry.total - lineSubtotal)}
                         </span>
@@ -471,14 +443,14 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                         onClick={handleDeleteEntry}
                       >
                         <Trash2 className="h-4 w-4" />
-                        Delete receipt
+                        Supprimer le ticket
                       </Button>
                       <div className="flex flex-wrap justify-end gap-3">
                         <Button type="button" variant="outline" onClick={handleCloseDetail}>
-                          Cancel
+                          Annuler
                         </Button>
                         <Button type="submit" className="gap-2">
-                          Save changes
+                          Enregistrer
                         </Button>
                       </div>
                     </div>

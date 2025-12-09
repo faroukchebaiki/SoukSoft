@@ -85,6 +85,20 @@ const defaultFavoriteCategories: FavoriteCategory[] = [
 const FAVORITES_ALL_CATEGORY = "All favorites";
 type FavoriteAssignments = Record<string, string[]>;
 
+function pickReadableTextColor(backgroundColor?: string) {
+  if (!backgroundColor || backgroundColor.startsWith("var(")) return "var(--foreground)";
+  const hexMatch = backgroundColor.trim().match(/^#?([a-f\d]{3}|[a-f\d]{6})$/i);
+  if (!hexMatch) return "var(--foreground)";
+  const raw = hexMatch[1];
+  const normalized =
+    raw.length === 3 ? raw.split("").map((char) => char + char).join("") : raw;
+  const r = Number.parseInt(normalized.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(normalized.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(normalized.slice(4, 6), 16) / 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.6 ? "#0f172a" : "#ffffff";
+}
+
 function readFavoriteCategories(): FavoriteCategory[] {
   if (typeof window === "undefined") return defaultFavoriteCategories;
   try {
@@ -925,7 +939,7 @@ export function CounterPage({
       <button
         key={product.id}
         type="button"
-        className={`relative flex h-60 w-full flex-col rounded-2xl border bg-background p-3 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+        className={`relative flex h-60 w-full flex-col rounded-2xl border bg-background p-4 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
           isSelected ? "border-emerald-500 ring-1 ring-emerald-200" : "border-strong"
         }`}
         onClick={() => handleProductCardClick(product)}
@@ -960,7 +974,12 @@ export function CounterPage({
               {favoriteTags.map((category) => (
                 <span
                   key={category.id}
-                  className="rounded-full bg-amber-100 px-2 py-[2px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
+                  className="inline-flex items-center rounded-full border px-2 py-[3px] font-semibold shadow-sm"
+                  style={{
+                    backgroundColor: category.color,
+                    borderColor: category.color,
+                    color: pickReadableTextColor(category.color),
+                  }}
                 >
                   {category.label}
                 </span>
@@ -2081,7 +2100,7 @@ export function CounterPage({
               </section>
             ) : (
               <>
-                <aside className="flex w-48 flex-col rounded-2xl border border-strong bg-panel p-3 text-xs shadow-inner">
+                <aside className="flex w-52 min-h-0 max-h-[calc(100vh-220px)] flex-col rounded-2xl border border-strong bg-panel p-3 text-xs shadow-inner">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-muted-foreground">
                       Favoris
@@ -2120,7 +2139,7 @@ export function CounterPage({
                       </div>
                     </div>
                   ) : null}
-                  <div className="flex-1 space-y-2 overflow-auto">
+                  <div className="flex-1 space-y-2 overflow-auto pr-1">
                     {[{ id: FAVORITES_ALL_CATEGORY, label: "Tous les favoris", color: "var(--card)" }, ...favoriteCategories].map((entry) => {
                       const isAll = entry.id === FAVORITES_ALL_CATEGORY;
                       const textColor = "var(--foreground)";
@@ -2183,7 +2202,7 @@ export function CounterPage({
                   </div>
                 </aside>
 
-                <section className="flex-1 rounded-2xl border border-strong bg-panel p-4 shadow-inner min-h-0">
+                <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-strong bg-panel p-4 shadow-inner">
                   <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-strong bg-panel-soft px-3 py-2 text-xs">
                     <span className="rounded-full bg-background px-3 py-1 font-semibold text-foreground">
                       Sélection : {selectedProductIds.size}
@@ -2242,7 +2261,7 @@ export function CounterPage({
                     </div>
                   </div>
                   <div className="flex-1 overflow-auto">
-                    <div className="grid grid-cols-1 gap-3 content-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-4 content-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {filteredProducts.map((product) => renderProductCard(product))}
                       {filteredProducts.length === 0 ? (
                         <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">

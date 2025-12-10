@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import {
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MutableRefObject,
   type SyntheticEvent,
   Fragment,
@@ -953,14 +954,24 @@ export function CounterPage({
       (favoriteAssignments[category.id] ?? []).includes(product.id),
     );
 
+    const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleProductCardClick(product);
+      }
+    };
+
     return (
-      <button
+      // biome-ignore lint/a11y/useSemanticElements: The card acts like a button but contains nested controls that must stay as real buttons.
+      <div
         key={product.id}
-        type="button"
+        role="button"
+        tabIndex={0}
         className={`relative flex h-60 w-full flex-col rounded-2xl border bg-background p-4 text-left text-xs shadow transition hover:border-strong hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
           isSelected ? "border-emerald-500 ring-1 ring-emerald-200" : "border-strong"
         }`}
         onClick={() => handleProductCardClick(product)}
+        onKeyDown={handleCardKeyDown}
       >
         <div className="absolute left-2 top-2">
           <button
@@ -1100,7 +1111,7 @@ export function CounterPage({
             </div>
           </div>
         </div>
-      </button>
+      </div>
     );
   };
 
@@ -1850,7 +1861,7 @@ export function CounterPage({
                   </div>
                 </div>
                 <div className="mt-3 flex-1 overflow-auto">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
                     {filteredProducts.map((product) => renderProductCard(product))}
                     {filteredProducts.length === 0 ? (
                       <div className="col-span-full flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-strong text-xs text-muted-foreground">

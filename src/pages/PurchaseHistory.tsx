@@ -114,8 +114,11 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const handleUpdateEntry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedEntry) return;
-    const parsedTotal = Number(editForm.total);
-    const totalValue = Number.isFinite(parsedTotal) ? parsedTotal : selectedEntry.total;
+    const parsedTotal = Number.parseFloat(editForm.total);
+    const totalValue =
+      editForm.total.trim() !== "" && Number.isFinite(parsedTotal) && parsedTotal >= 0
+        ? parsedTotal
+        : selectedEntry.total;
     setHistoryEntries((prev) =>
       prev.map((entry) =>
         entry.id === selectedEntry.id

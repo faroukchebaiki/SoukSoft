@@ -26,6 +26,8 @@ const demoReceiptItems: ReceiptPreviewItem[] = [
   { name: "Medjool dates", qty: 1.2, unit: "kg", price: 1600, sku: "PAN-DAT-22" },
 ];
 
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 export function AdminSettings({
   options,
   receiptSettings,
@@ -64,6 +66,11 @@ export function AdminSettings({
   }, [onGoHome]);
 
   const loadPrinters = async () => {
+    if (!isTauri) {
+      setPrintersError("Printer discovery requires the packaged desktop app.");
+      setPrinters([]);
+      return;
+    }
     setPrintersLoading(true);
     setPrintersError(null);
     try {

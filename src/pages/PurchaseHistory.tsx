@@ -4,8 +4,14 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import { AUDIT_LOG_EVENT, AUDIT_STORAGE_KEY, getAuditLog } from "@/lib/auditLog";
-import type { AuditLogEntry, PurchaseHistoryEntry } from "@/types";
+import { logAuditEvent } from "@/lib/auditLog";
+import {
+  getStoredPurchaseHistory,
+  persistPurchaseHistory,
+  PURCHASE_HISTORY_EVENT,
+  PURCHASE_HISTORY_STORAGE_KEY,
+} from "@/lib/purchaseHistoryStorage";
+import type { PurchaseHistoryEntry } from "@/types";
 
 interface EditReceiptFormState {
   cashier: string;
@@ -31,30 +37,25 @@ interface PurchaseHistoryProps {
 }
 
 export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
-  const [historyEntries, setHistoryEntries] = useState(entries);
+  const [historyEntries, setHistoryEntries] = useState(() => getStoredPurchaseHistory(entries));
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditReceiptFormState>(emptyEditForm);
-  const [_auditEntries, setAuditEntries] = useState<AuditLogEntry[]>(() => getAuditLog());
 
   useEffect(() => {
-    setHistoryEntries(entries);
-  }, [entries]);
-
-  useEffect(() => {
-    const syncAudit = () => setAuditEntries(getAuditLog());
-    syncAudit();
-    window.addEventListener(AUDIT_LOG_EVENT, syncAudit);
+    const syncHistory = () => setHistoryEntries(getStoredPurchaseHistory(entries));
+    syncHistory();
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === AUDIT_STORAGE_KEY) {
-        syncAudit();
+      if (event.key === PURCHASE_HISTORY_STORAGE_KEY) {
+        syncHistory();
       }
     };
+    window.addEventListener(PURCHASE_HISTORY_EVENT, syncHistory);
     window.addEventListener("storage", handleStorage);
     return () => {
-      window.removeEventListener(AUDIT_LOG_EVENT, syncAudit);
+      window.removeEventListener(PURCHASE_HISTORY_EVENT, syncHistory);
       window.removeEventListener("storage", handleStorage);
     };
-  }, []);
+  }, [entries]);
 
   useEffect(() => {
     if (!onGoHome) return;
@@ -73,6 +74,14 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     () => historyEntries.find((entry) => entry.id === selectedEntryId) ?? null,
     [historyEntries, selectedEntryId],
   );
+
+  const orderedEntries = useMemo(() => {
+    return [...historyEntries].sort((a, b) => {
+      const timeDiff = b.completedAt.localeCompare(a.completedAt);
+      if (timeDiff !== 0) return timeDiff;
+      return b.id.localeCompare(a.id);
+    });
+  }, [historyEntries]);
 
   const lineSubtotal = useMemo(() => {
     if (!selectedEntry) return 0;
@@ -95,6 +104,16 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     });
   }, [selectedEntry]);
 
+  const parsedEditTotal = useMemo(() => {
+    const parsed = Number.parseFloat(editForm.total);
+    if (editForm.total.trim() === "") return null;
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return parsed;
+  }, [editForm.total]);
+
+  const displayedTotal = selectedEntry ? parsedEditTotal ?? selectedEntry.total : 0;
+  const displayedAdjustment = displayedTotal - lineSubtotal;
+
   const totalCollected = historyEntries.reduce((sum, entry) => sum + entry.total, 0);
   const todayTotal = totalCollected;
   const todayAverage = historyEntries.length > 0 ? todayTotal / historyEntries.length : 0;
@@ -114,13 +133,9 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const handleUpdateEntry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedEntry) return;
-    const parsedTotal = Number.parseFloat(editForm.total);
-    const totalValue =
-      editForm.total.trim() !== "" && Number.isFinite(parsedTotal) && parsedTotal >= 0
-        ? parsedTotal
-        : selectedEntry.total;
-    setHistoryEntries((prev) =>
-      prev.map((entry) =>
+    const totalValue = parsedEditTotal ?? selectedEntry.total;
+    setHistoryEntries((prev) => {
+      const next = prev.map((entry) =>
         entry.id === selectedEntry.id
           ? {
               ...entry,
@@ -132,14 +147,35 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
               notes: editForm.notes || undefined,
             }
           : entry,
-      ),
-    );
+      );
+      persistPurchaseHistory(next);
+      return next;
+    });
+    logAuditEvent({
+      action: "update",
+      actor: editForm.cashier || selectedEntry.cashier,
+      summary: `Ticket ${selectedEntry.id} mis à jour`,
+      details: [
+        `Total: ${formatCurrency(totalValue)}`,
+        `Client: ${editForm.customerName || selectedEntry.customerName || "Client de passage"}`,
+      ],
+    });
     handleCloseDetail();
   };
 
   const handleDeleteEntry = () => {
     if (!selectedEntry) return;
-    setHistoryEntries((prev) => prev.filter((entry) => entry.id !== selectedEntry.id));
+    setHistoryEntries((prev) => {
+      const next = prev.filter((entry) => entry.id !== selectedEntry.id);
+      persistPurchaseHistory(next);
+      return next;
+    });
+    logAuditEvent({
+      action: "delete",
+      actor: selectedEntry.cashier,
+      summary: `Ticket ${selectedEntry.id} supprimé`,
+      details: [`Total: ${formatCurrency(selectedEntry.total)}`],
+    });
     handleCloseDetail();
   };
 
@@ -200,7 +236,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
         <CardContent className="flex min-h-0 flex-1 flex-col rounded-md border p-0">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex-1 overflow-auto">
-                <table className="min-w-full border border-border border-separate border-spacing-0 text-sm">
+              <table className="min-w-full border border-border border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs uppercase text-muted-foreground backdrop-blur">
                   <tr>
                     <th className="border border-border px-3 py-2 font-medium">Ticket</th>
@@ -223,8 +259,8 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                       </td>
                     </tr>
                   ) : (
-                    historyEntries.map((entry, index) => {
-                      const basketNumber = historyEntries.length - index;
+                    orderedEntries.map((entry, index) => {
+                      const basketNumber = orderedEntries.length - index;
                       return (
                         <tr
                           key={entry.id}
@@ -297,10 +333,10 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                       <div className="rounded-2xl border bg-card/60 p-4">
                         <p className="text-xs uppercase text-muted-foreground">Total</p>
                         <p className="text-base font-semibold text-card-foreground">
-                          {formatCurrency(selectedEntry.total)}
+                          {formatCurrency(displayedTotal)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Δ {formatCurrency(selectedEntry.total - lineSubtotal)}
+                          Δ {formatCurrency(displayedAdjustment)}
                         </p>
                       </div>
                     </div>
@@ -429,12 +465,12 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                       </p>
                       <p>
                         Total enregistré :{" "}
-                        <span className="font-semibold">{formatCurrency(selectedEntry.total)}</span>
+                        <span className="font-semibold">{formatCurrency(displayedTotal)}</span>
                       </p>
                       <p>
                         Ajustement :{" "}
                         <span className="font-semibold">
-                          {formatCurrency(selectedEntry.total - lineSubtotal)}
+                          {formatCurrency(displayedAdjustment)}
                         </span>
                       </p>
                     </div>

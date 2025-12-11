@@ -367,7 +367,7 @@ const purchaseHistorySeed: PurchaseHistoryEntry[] = [
     total: 12480,
     items: 27,
     paymentMethod: "CIB card",
-    completedAt: "12:04",
+    completedAt: "2025-02-11 12:04",
     customerName: "Rym Apartment",
     customerId: "CL-2201",
     lineItems: [
@@ -386,7 +386,7 @@ const purchaseHistorySeed: PurchaseHistoryEntry[] = [
     total: 8420,
     items: 13,
     paymentMethod: "Cash",
-    completedAt: "11:50",
+    completedAt: "2025-02-11 11:50",
     customerName: "Walk-in guest",
     lineItems: [
       { sku: "PAN-OLI-11", name: "Kabylie olive oil 1L", qty: 2, unit: "pcs", price: 950 },
@@ -402,7 +402,7 @@ const purchaseHistorySeed: PurchaseHistoryEntry[] = [
     total: 19120,
     items: 15,
     paymentMethod: "Edahabia card",
-    completedAt: "11:32",
+    completedAt: "2025-02-10 11:32",
     customerName: "La Belle Table",
     customerId: "CL-1980",
     lineItems: [
@@ -419,7 +419,7 @@ const purchaseHistorySeed: PurchaseHistoryEntry[] = [
     total: 3230,
     items: 14,
     paymentMethod: "Cash",
-    completedAt: "11:18",
+    completedAt: "2025-02-10 11:18",
     customerName: "Walk-in guest",
     lineItems: [
       { sku: "PROD-HER-12", name: "Fresh mint bunch", qty: 5, unit: "pcs", price: 120 },
@@ -433,7 +433,7 @@ const purchaseHistorySeed: PurchaseHistoryEntry[] = [
     total: 44200,
     items: 32,
     paymentMethod: "Store voucher",
-    completedAt: "10:55",
+    completedAt: "2025-02-09 10:55",
     customerName: "Le Cèdre Traiteur",
     customerId: "CL-1042",
     lineItems: [
@@ -453,11 +453,15 @@ const generatedHistory: PurchaseHistoryEntry[] = Array.from({ length: 95 }, (_, 
   const totalOffset = (index % 5) * 120;
   const minute = String((index * 7) % 60).padStart(2, "0");
   const hour = String(9 + Math.floor((index * 7) / 60)).padStart(2, "0");
+  const baseDate = new Date("2025-02-11T00:00:00Z");
+  const date = new Date(baseDate);
+  date.setUTCDate(baseDate.getUTCDate() - Math.floor(index / 30));
+  const datePart = date.toISOString().slice(0, 10);
   return {
     ...base,
     id,
     total: base.total + totalOffset,
-    completedAt: `${hour}:${minute}`,
+    completedAt: `${datePart} ${hour}:${minute}`,
     customerName: base.customerName ?? "Client de passage",
     paymentMethod:
       index % 4 === 0

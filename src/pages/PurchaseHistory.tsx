@@ -1,5 +1,5 @@
 import { Home, ReceiptText, Trash2, X } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,15 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     });
   }, [historyEntries]);
 
+  const entryIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let index = 0; index < orderedEntries.length; index += 1) {
+      const entry = orderedEntries[index];
+      map.set(entry.id, index);
+    }
+    return map;
+  }, [orderedEntries]);
+
   const lineSubtotal = useMemo(() => {
     if (!selectedEntry) return 0;
     if (!selectedEntry.lineItems) return selectedEntry.total;
@@ -117,6 +126,60 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const totalCollected = historyEntries.reduce((sum, entry) => sum + entry.total, 0);
   const todayTotal = totalCollected;
   const todayAverage = historyEntries.length > 0 ? todayTotal / historyEntries.length : 0;
+  const todayLabel = useMemo(() => {
+    return new Date().toLocaleDateString("fr-DZ", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, []);
+
+  const resolveDateLabel = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const parsedFull = Date.parse(trimmed);
+      if (Number.isFinite(parsedFull)) {
+        return new Date(parsedFull).toLocaleDateString("fr-DZ", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      }
+      const datePart = trimmed.split(" ")[0];
+      const parsedDate = Date.parse(datePart);
+      if (Number.isFinite(parsedDate)) {
+        return new Date(parsedDate).toLocaleDateString("fr-DZ", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      }
+      return todayLabel;
+    },
+    [todayLabel],
+  );
+
+  const dateGroups = useMemo(() => {
+    const groups: Array<{ label: string; entries: PurchaseHistoryEntry[] }> = [];
+    orderedEntries.forEach((entry) => {
+      const label = resolveDateLabel(entry.completedAt);
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) {
+        last.entries.push(entry);
+      } else {
+        groups.push({ label, entries: [entry] });
+      }
+    });
+    return groups;
+  }, [orderedEntries, resolveDateLabel]);
+
+  const formatHour = useCallback((value: string) => {
+    const match = value.trim().match(/(\d{1,2}:\d{2})/);
+    return match ? match[1] : value;
+  }, []);
 
   const handleSelectEntry = (entry: PurchaseHistoryEntry) => {
     setSelectedEntryId(entry.id);
@@ -180,7 +243,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   };
 
   return (
-    <main className="page-shell flex h-screen flex-1 flex-col overflow-hidden px-6 pt-6 pb-0 lg:px-8">
+    <main className="page-shell flex h-screen flex-1 flex-col overflow-hidden px-6 pt-6 pb-4 lg:px-8">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Historique</h1>
@@ -198,7 +261,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 px-4 py-2">
             <CardTitle className="whitespace-nowrap">Total encaissé</CardTitle>
             <span className="text-2xl font-semibold tracking-tight">
               {formatCurrency(totalCollected)}
@@ -206,7 +269,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 px-4 py-2">
             <CardTitle className="whitespace-nowrap">Total encaissé aujourd&apos;hui</CardTitle>
             <span className="text-2xl font-semibold tracking-tight">
               {historyEntries.length > 0 ? formatCurrency(todayTotal) : "—"}
@@ -214,7 +277,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 px-4 py-2">
             <CardTitle className="whitespace-nowrap">Moyenne du jour</CardTitle>
             <span className="text-2xl font-semibold tracking-tight">
               {historyEntries.length > 0 ? formatCurrency(todayAverage) : "—"}
@@ -223,7 +286,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
         </Card>
       </div>
 
-      <Card className="mt-6 flex min-h-0 flex-col">
+      <Card className="mt-4 flex min-h-0 flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ReceiptText className="h-5 w-5 text-muted-foreground" />
@@ -259,28 +322,63 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                       </td>
                     </tr>
                   ) : (
-                    orderedEntries.map((entry, index) => {
-                      const basketNumber = orderedEntries.length - index;
-                      return (
-                        <tr
-                          key={entry.id}
-                          className="cursor-pointer transition-colors hover:bg-muted/40"
-                          onClick={() => handleSelectEntry(entry)}
-                        >
-                          <td className="border border-border px-3 py-2 font-semibold">{entry.id}</td>
-                          <td className="border border-border px-3 py-2 text-center text-muted-foreground">
-                            {basketNumber}
-                          </td>
-                          <td className="border border-border px-3 py-2">{entry.cashier}</td>
-                          <td className="border border-border px-3 py-2 text-muted-foreground">
-                            {entry.customerName ?? "Client de passage"}
-                          </td>
-                          <td className="border border-border px-3 py-2 text-right">{entry.items}</td>
-                          <td className="border border-border px-3 py-2 text-right font-semibold">
-                            {formatCurrency(entry.total)}
-                          </td>
-                          <td className="border border-border px-3 py-2 text-right">{entry.completedAt}</td>
-                        </tr>
+                    dateGroups.map((group, groupIndex) => {
+                      const isFirst = groupIndex === 0;
+                          return (
+                            <Fragment key={group.label}>
+                              <tr
+                            className="sticky top-9 z-30 bg-background text-primary shadow-sm"
+                            style={{ backgroundColor: "hsl(var(--background))" }}
+                            aria-label={`Tickets du ${group.label}`}
+                          >
+                            <td
+                              colSpan={7}
+                              className="relative border border-border bg-background px-3 py-2 before:absolute before:inset-0 before:bg-background before:content-['']"
+                              style={{ backgroundColor: "hsl(var(--background))" }}
+                            >
+                              <div className="relative z-10 flex items-center gap-3 text-[11px] uppercase tracking-[0.25em]">
+                                <span
+                                  className={`h-[2px] flex-1 rounded-full ${isFirst ? "bg-primary/40" : "bg-primary/30"}`}
+                                  aria-hidden="true"
+                                />
+                                <span className="rounded-full border border-primary/30 bg-background px-3 py-1 text-primary">
+                                  {group.label}
+                                </span>
+                                <span
+                                  className={`h-[2px] flex-1 rounded-full ${isFirst ? "bg-primary/40" : "bg-primary/30"}`}
+                                  aria-hidden="true"
+                                />
+                          </div>
+                        </td>
+                      </tr>
+                      {group.entries.map((entry, index) => {
+                            const position = entryIndexMap.get(entry.id) ?? index;
+                            const basketNumber = orderedEntries.length - position;
+                            return (
+                              <tr
+                                key={entry.id}
+                                className="cursor-pointer transition-colors hover:bg-muted/40"
+                                onClick={() => handleSelectEntry(entry)}
+                              >
+                                <td className="border border-border px-3 py-2 font-semibold">{entry.id}</td>
+                                <td className="border border-border px-3 py-2 text-center text-muted-foreground">
+                                  {basketNumber}
+                                </td>
+                                <td className="border border-border px-3 py-2">{entry.cashier}</td>
+                                <td className="border border-border px-3 py-2 text-muted-foreground">
+                                  {entry.customerName ?? "Client de passage"}
+                                </td>
+                                <td className="border border-border px-3 py-2 text-right">{entry.items}</td>
+                                <td className="border border-border px-3 py-2 text-right font-semibold">
+                                  {formatCurrency(entry.total)}
+                                </td>
+                              <td className="border border-border px-3 py-2 text-right">
+                                {formatHour(entry.completedAt)}
+                              </td>
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
                       );
                     })
                   )}

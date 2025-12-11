@@ -40,6 +40,29 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const [historyEntries, setHistoryEntries] = useState(() => getStoredPurchaseHistory(entries));
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditReceiptFormState>(emptyEditForm);
+  const [filters, setFilters] = useState<{
+    query: string;
+    cashier: string;
+    client: string;
+    payment: string;
+    dateFrom: string;
+    dateTo: string;
+    hourFrom: string;
+    hourTo: string;
+    minTotal: string;
+    maxTotal: string;
+  }>({
+    query: "",
+    cashier: "",
+    client: "",
+    payment: "",
+    dateFrom: "",
+    dateTo: "",
+    hourFrom: "",
+    hourTo: "",
+    minTotal: "",
+    maxTotal: "",
+  });
 
   useEffect(() => {
     const syncHistory = () => setHistoryEntries(getStoredPurchaseHistory(entries));
@@ -82,15 +105,6 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
       return b.id.localeCompare(a.id);
     });
   }, [historyEntries]);
-
-  const entryIndexMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (let index = 0; index < orderedEntries.length; index += 1) {
-      const entry = orderedEntries[index];
-      map.set(entry.id, index);
-    }
-    return map;
-  }, [orderedEntries]);
 
   const lineSubtotal = useMemo(() => {
     if (!selectedEntry) return 0;
@@ -162,9 +176,75 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     [todayLabel],
   );
 
-  const dateGroups = useMemo(() => {
+  const formatHour = useCallback((value: string) => {
+    const match = value.trim().match(/(\d{1,2}:\d{2})/);
+    return match ? match[1] : value;
+  }, []);
+
+  const parseEntryDateTime = useCallback(
+    (entry: PurchaseHistoryEntry) => {
+      const hourText = formatHour(entry.completedAt);
+      const [maybeDate] = entry.completedAt.split(" ");
+      const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(maybeDate) ? maybeDate : new Date().toISOString().slice(0, 10);
+      return new Date(`${safeDate}T${hourText.length === 5 ? hourText : "00:00"}:00`);
+    },
+    [formatHour],
+  );
+
+  const filteredEntries = useMemo(() => {
+    const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`) : null;
+    const dateTo = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`) : null;
+    const hourFrom = filters.hourFrom ? filters.hourFrom.split(":").map(Number) : null;
+    const hourTo = filters.hourTo ? filters.hourTo.split(":").map(Number) : null;
+    const minTotal = filters.minTotal ? Number.parseFloat(filters.minTotal) : null;
+    const maxTotal = filters.maxTotal ? Number.parseFloat(filters.maxTotal) : null;
+    const query = filters.query.trim().toLowerCase();
+
+    return orderedEntries.filter((entry) => {
+      const dt = parseEntryDateTime(entry);
+      if (dateFrom && dt < dateFrom) return false;
+      if (dateTo && dt > dateTo) return false;
+
+      const minutes = dt.getHours() * 60 + dt.getMinutes();
+      if (hourFrom && hourFrom.length === 2) {
+        const target = (hourFrom[0] ?? 0) * 60 + (hourFrom[1] ?? 0);
+        if (minutes < target) return false;
+      }
+      if (hourTo && hourTo.length === 2) {
+        const target = (hourTo[0] ?? 0) * 60 + (hourTo[1] ?? 0);
+        if (minutes > target) return false;
+      }
+
+      if (minTotal !== null && Number.isFinite(minTotal) && entry.total < minTotal) return false;
+      if (maxTotal !== null && Number.isFinite(maxTotal) && entry.total > maxTotal) return false;
+
+      if (filters.cashier && entry.cashier !== filters.cashier) return false;
+      if (filters.payment && entry.paymentMethod !== filters.payment) return false;
+      if (filters.client) {
+        const clientName = entry.customerName ?? "Client de passage";
+        if (!clientName.toLowerCase().includes(filters.client.toLowerCase())) return false;
+      }
+
+      if (query) {
+        const target = `${entry.id} ${entry.cashier} ${entry.customerName ?? ""} ${entry.notes ?? ""}`.toLowerCase();
+        if (!target.includes(query)) return false;
+      }
+
+      return true;
+    });
+  }, [filters, orderedEntries, parseEntryDateTime]);
+
+  const filteredIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let index = 0; index < filteredEntries.length; index += 1) {
+      map.set(filteredEntries[index]?.id, index);
+    }
+    return map;
+  }, [filteredEntries]);
+
+  const filteredDateGroups = useMemo(() => {
     const groups: Array<{ label: string; entries: PurchaseHistoryEntry[] }> = [];
-    orderedEntries.forEach((entry) => {
+    filteredEntries.forEach((entry) => {
       const label = resolveDateLabel(entry.completedAt);
       const last = groups[groups.length - 1];
       if (last && last.label === label) {
@@ -174,12 +254,16 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
       }
     });
     return groups;
-  }, [orderedEntries, resolveDateLabel]);
+  }, [filteredEntries, resolveDateLabel]);
 
-  const formatHour = useCallback((value: string) => {
-    const match = value.trim().match(/(\d{1,2}:\d{2})/);
-    return match ? match[1] : value;
-  }, []);
+  const cashiers = useMemo(
+    () => Array.from(new Set(historyEntries.map((entry) => entry.cashier))),
+    [historyEntries],
+  );
+  const paymentMethods = useMemo(
+    () => Array.from(new Set(historyEntries.map((entry) => entry.paymentMethod))),
+    [historyEntries],
+  );
 
   const handleSelectEntry = (entry: PurchaseHistoryEntry) => {
     setSelectedEntryId(entry.id);
@@ -287,14 +371,150 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
       </div>
 
       <Card className="mt-4 flex min-h-0 flex-col">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ReceiptText className="h-5 w-5 text-muted-foreground" />
-            Journal des tickets
-          </CardTitle>
-          <CardDescription>
-            Les tickets les plus récents sont listés en premier.
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex items-start gap-3">
+            <div className="mt-1 hidden h-9 w-9 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground sm:flex">
+              <ReceiptText className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Recherche</span>
+                  <input
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    placeholder="Ticket, client, note..."
+                    value={filters.query}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, query: event.target.value }))}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Caissier</span>
+                  <select
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    value={filters.cashier}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, cashier: event.target.value }))}
+                  >
+                    <option value="">Tous</option>
+                    {cashiers.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Client</span>
+                  <input
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    placeholder="Nom client"
+                    value={filters.client}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, client: event.target.value }))}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-medium text-muted-foreground">Paiement</span>
+                  <select
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    value={filters.payment}
+                    onChange={(event) => setFilters((prev) => ({ ...prev, payment: event.target.value }))}
+                  >
+                    <option value="">Tous</option>
+                    {paymentMethods.map((method) => (
+                      <option key={method} value={method}>
+                        {method}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">Date de</span>
+                    <input
+                      type="date"
+                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      value={filters.dateFrom}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">Date à</span>
+                    <input
+                      type="date"
+                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      value={filters.dateTo}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, dateTo: event.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">Heure de</span>
+                    <input
+                      type="time"
+                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      value={filters.hourFrom}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, hourFrom: event.target.value }))}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">Heure à</span>
+                    <input
+                      type="time"
+                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      value={filters.hourTo}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, hourTo: event.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">Total min</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      value={filters.minTotal}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, minTotal: event.target.value }))}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">Total max</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      value={filters.maxTotal}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, maxTotal: event.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() =>
+                      setFilters({
+                        query: "",
+                        cashier: "",
+                        client: "",
+                        payment: "",
+                        dateFrom: "",
+                        dateTo: "",
+                        hourFrom: "",
+                        hourTo: "",
+                        minTotal: "",
+                        maxTotal: "",
+                      })
+                    }
+                  >
+                    Réinitialiser
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col rounded-md border p-0">
           <div className="flex min-h-0 flex-1 flex-col">
@@ -312,7 +532,7 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {historyEntries.length === 0 ? (
+                  {filteredEntries.length === 0 ? (
                     <tr>
                       <td
                         className="border border-border px-4 py-6 text-center text-sm text-muted-foreground"
@@ -322,65 +542,54 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
                       </td>
                     </tr>
                   ) : (
-                    dateGroups.map((group, groupIndex) => {
-                      const isFirst = groupIndex === 0;
-                          return (
-                            <Fragment key={group.label}>
-                              <tr
-                            className="sticky top-9 z-30 bg-background text-primary shadow-sm"
-                            style={{ backgroundColor: "hsl(var(--background))" }}
-                            aria-label={`Tickets du ${group.label}`}
+                    filteredDateGroups.map((group) => (
+                      <Fragment key={group.label}>
+                        <tr
+                          className="sticky top-9 z-30 bg-muted text-foreground shadow-sm"
+                          aria-label={`Tickets du ${group.label}`}
+                        >
+                          <td
+                            colSpan={7}
+                            className="relative border border-border bg-muted px-3 py-2 before:absolute before:inset-0 before:bg-muted before:content-['']"
                           >
-                            <td
-                              colSpan={7}
-                              className="relative border border-border bg-background px-3 py-2 before:absolute before:inset-0 before:bg-background before:content-['']"
-                              style={{ backgroundColor: "hsl(var(--background))" }}
+                            <div className="relative z-10 flex items-center gap-3 text-[11px] uppercase tracking-[0.25em]">
+                              <span className="h-[2px] flex-1 rounded-full bg-border" aria-hidden="true" />
+                              <span className="rounded-full border border-border/70 bg-card px-3 py-1 text-foreground">
+                                {group.label}
+                              </span>
+                              <span className="h-[2px] flex-1 rounded-full bg-border" aria-hidden="true" />
+                            </div>
+                          </td>
+                        </tr>
+                        {group.entries.map((entry, index) => {
+                          const position = filteredIndexMap.get(entry.id) ?? index;
+                          const basketNumber = filteredEntries.length - position;
+                          return (
+                            <tr
+                              key={entry.id}
+                              className="cursor-pointer transition-colors hover:bg-muted/40"
+                              onClick={() => handleSelectEntry(entry)}
                             >
-                              <div className="relative z-10 flex items-center gap-3 text-[11px] uppercase tracking-[0.25em]">
-                                <span
-                                  className={`h-[2px] flex-1 rounded-full ${isFirst ? "bg-primary/40" : "bg-primary/30"}`}
-                                  aria-hidden="true"
-                                />
-                                <span className="rounded-full border border-primary/30 bg-background px-3 py-1 text-primary">
-                                  {group.label}
-                                </span>
-                                <span
-                                  className={`h-[2px] flex-1 rounded-full ${isFirst ? "bg-primary/40" : "bg-primary/30"}`}
-                                  aria-hidden="true"
-                                />
-                          </div>
-                        </td>
-                      </tr>
-                      {group.entries.map((entry, index) => {
-                            const position = entryIndexMap.get(entry.id) ?? index;
-                            const basketNumber = orderedEntries.length - position;
-                            return (
-                              <tr
-                                key={entry.id}
-                                className="cursor-pointer transition-colors hover:bg-muted/40"
-                                onClick={() => handleSelectEntry(entry)}
-                              >
-                                <td className="border border-border px-3 py-2 font-semibold">{entry.id}</td>
-                                <td className="border border-border px-3 py-2 text-center text-muted-foreground">
-                                  {basketNumber}
-                                </td>
-                                <td className="border border-border px-3 py-2">{entry.cashier}</td>
-                                <td className="border border-border px-3 py-2 text-muted-foreground">
-                                  {entry.customerName ?? "Client de passage"}
-                                </td>
-                                <td className="border border-border px-3 py-2 text-right">{entry.items}</td>
-                                <td className="border border-border px-3 py-2 text-right font-semibold">
-                                  {formatCurrency(entry.total)}
-                                </td>
+                              <td className="border border-border px-3 py-2 font-semibold">{entry.id}</td>
+                              <td className="border border-border px-3 py-2 text-center text-muted-foreground">
+                                {basketNumber}
+                              </td>
+                              <td className="border border-border px-3 py-2">{entry.cashier}</td>
+                              <td className="border border-border px-3 py-2 text-muted-foreground">
+                                {entry.customerName ?? "Client de passage"}
+                              </td>
+                              <td className="border border-border px-3 py-2 text-right">{entry.items}</td>
+                              <td className="border border-border px-3 py-2 text-right font-semibold">
+                                {formatCurrency(entry.total)}
+                              </td>
                               <td className="border border-border px-3 py-2 text-right">
                                 {formatHour(entry.completedAt)}
                               </td>
-                              </tr>
-                            );
-                          })}
-                        </Fragment>
-                      );
-                    })
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))
                   )}
                 </tbody>
               </table>

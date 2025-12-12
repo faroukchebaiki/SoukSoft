@@ -137,9 +137,6 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
   const displayedTotal = selectedEntry ? parsedEditTotal ?? selectedEntry.total : 0;
   const displayedAdjustment = displayedTotal - lineSubtotal;
 
-  const totalCollected = historyEntries.reduce((sum, entry) => sum + entry.total, 0);
-  const todayTotal = totalCollected;
-  const todayAverage = historyEntries.length > 0 ? todayTotal / historyEntries.length : 0;
   const todayLabel = useMemo(() => {
     return new Date().toLocaleDateString("fr-DZ", {
       weekday: "long",
@@ -181,6 +178,14 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     return match ? match[1] : value;
   }, []);
 
+  const isSameDay = useCallback((first: Date, second: Date) => {
+    return (
+      first.getFullYear() === second.getFullYear() &&
+      first.getMonth() === second.getMonth() &&
+      first.getDate() === second.getDate()
+    );
+  }, []);
+
   const parseEntryDateTime = useCallback(
     (entry: PurchaseHistoryEntry) => {
       const hourText = formatHour(entry.completedAt);
@@ -190,6 +195,15 @@ export function PurchaseHistory({ entries, onGoHome }: PurchaseHistoryProps) {
     },
     [formatHour],
   );
+
+  const todayEntries = useMemo(() => {
+    const now = new Date();
+    return historyEntries.filter((entry) => isSameDay(parseEntryDateTime(entry), now));
+  }, [historyEntries, isSameDay, parseEntryDateTime]);
+
+  const totalCollected = historyEntries.reduce((sum, entry) => sum + entry.total, 0);
+  const todayTotal = todayEntries.reduce((sum, entry) => sum + entry.total, 0);
+  const todayAverage = todayEntries.length > 0 ? todayTotal / todayEntries.length : 0;
 
   const filteredEntries = useMemo(() => {
     const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`) : null;
